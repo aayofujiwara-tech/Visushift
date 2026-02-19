@@ -77,9 +77,9 @@ function getColorTemperature(palette) {
 
 // --- Layout modes ---
 const LAYOUT_MODES = [
-  { name: "masonry", gap: 16 },
-  { name: "asymmetric", gap: 14 },
-  { name: "compact", gap: 6 },
+  { name: "masonry", gap: 32 },
+  { name: "asymmetric", gap: 28 },
+  { name: "compact", gap: 16 },
 ];
 
 // --- Asymmetric flex ratio patterns ---
@@ -379,7 +379,7 @@ function GlobalStyles({ theme }) {
         }
         @keyframes bgImageFadeIn {
           from { opacity: 0; }
-          to { opacity: 0.6; }
+          to { opacity: 0.7; }
         }
       `}</style>
     </>
@@ -417,7 +417,7 @@ function ImmersiveBackground({ bgImages, theme }) {
             height: "auto",
             top: positions[i % positions.length].top,
             left: positions[i % positions.length].left,
-            filter: "blur(40px) saturate(2.5) brightness(0.6) contrast(1.2)",
+            filter: "blur(35px) saturate(2.8) brightness(0.65) contrast(1.3)",
             opacity: 0,
             animation: `bgImageFadeIn 1.2s ease ${i * 0.15}s forwards, floatBlurImage ${17 + i * 2}s ease-in-out ${i * 1.2}s infinite`,
             objectFit: "cover",
@@ -444,7 +444,7 @@ function ImmersiveBackground({ bgImages, theme }) {
         style={{
           position: "absolute",
           inset: 0,
-          background: "rgba(0, 0, 0, 0.15)",
+          background: "rgba(0, 0, 0, 0.1)",
           zIndex: 2,
         }}
       />
@@ -863,6 +863,8 @@ function ImageCard({ image, index, theme, onClick, t, cardStyle }) {
         style={{
           width: "100%",
           display: "block",
+          maxHeight: isMobile ? "none" : 350,
+          objectFit: "cover",
           filter: hovered ? "brightness(1.1)" : "brightness(1)",
           transition: "filter 0.4s ease",
         }}
@@ -985,12 +987,12 @@ function SearchResultsHeader({ query, count, theme, t }) {
         display: "flex",
         justifyContent: "space-between",
         alignItems: "baseline",
-        padding: "16px 32px",
+        padding: "16px 24px",
         maxWidth: "100%",
-        margin: "24px 32px 8px",
+        margin: "24px 48px 12px",
         position: "relative",
         zIndex: 1,
-        background: "rgba(0, 0, 0, 0.3)",
+        background: "rgba(0, 0, 0, 0.2)",
         backdropFilter: "blur(10px)",
         WebkitBackdropFilter: "blur(10px)",
         borderRadius: 12,
@@ -1044,12 +1046,12 @@ function MasonryGrid({ images, theme, onImageClick, t, layoutMode, cardStyles })
       style={{
         display: "flex",
         gap: layoutMode.gap,
-        padding: "16px 32px 60px",
-        maxWidth: "100%",
-        margin: 0,
+        padding: "24px 48px 80px",
+        maxWidth: layoutMode.name === "compact" ? 1200 : 1400,
+        margin: "0 auto",
         position: "relative",
         zIndex: 1,
-        background: "rgba(0, 0, 0, 0.1)",
+        background: "rgba(0, 0, 0, 0.05)",
         borderRadius: 16,
         backdropFilter: "blur(5px)",
         WebkitBackdropFilter: "blur(5px)",
@@ -1245,7 +1247,7 @@ export default function Visushift() {
     const styles = results.map((_, i) => ({
       borderRadius: randomInRange(6, 32, i),
       rotation: randomInRange(-3.5, 3.5, i),
-      scale: randomInRange(0.94, 1.06, i),
+      scale: randomInRange(0.88, 1.0, i),
       paddingBottom: randomInRange(0, 16, i),
       marginTop: randomInRange(-8, 8, i),
       marginLeft: randomInRange(-4, 4, i),
