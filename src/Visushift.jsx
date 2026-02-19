@@ -29,6 +29,78 @@ const I18N = {
   },
 };
 
+// --- Japanese detection ---
+function containsJapanese(text) {
+  return /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF]/.test(text);
+}
+
+// --- Japanese to English dictionary ---
+const JA_EN_DICT = {
+  "自然": "nature", "宇宙": "space", "海": "ocean", "料理": "food",
+  "建築": "architecture", "アート": "art", "山": "mountains", "花": "flowers",
+  "都市": "cities", "動物": "animals",
+  "森": "forest", "森林": "forest", "花畑": "flower field", "桜": "cherry blossom",
+  "紅葉": "autumn leaves", "雪": "snow", "夕日": "sunset", "朝日": "sunrise",
+  "星": "stars", "月": "moon", "空": "sky", "雲": "clouds",
+  "川": "river", "湖": "lake", "滝": "waterfall", "ビーチ": "beach",
+  "サーフィン": "surfing", "ダイビング": "diving",
+  "猫": "cat", "犬": "dog", "鳥": "bird", "魚": "fish",
+  "馬": "horse", "蝶": "butterfly", "パンダ": "panda",
+  "寿司": "sushi", "ラーメン": "ramen", "ケーキ": "cake",
+  "パン": "bread", "コーヒー": "coffee", "ワイン": "wine",
+  "カフェ": "cafe", "レストラン": "restaurant",
+  "東京": "Tokyo", "京都": "Kyoto", "大阪": "Osaka", "富士山": "Mount Fuji",
+  "神社": "shrine", "寺": "temple", "城": "castle",
+  "車": "car", "電車": "train", "飛行機": "airplane",
+  "音楽": "music", "ギター": "guitar", "ピアノ": "piano",
+  "ダンス": "dance", "映画": "movie", "本": "books",
+  "スポーツ": "sports", "サッカー": "soccer", "野球": "baseball",
+  "旅行": "travel", "キャンプ": "camping", "登山": "hiking",
+  "クリスマス": "Christmas", "ハロウィン": "Halloween", "祭り": "festival",
+  "赤ちゃん": "baby", "家族": "family", "結婚式": "wedding",
+  "オフィス": "office", "仕事": "work", "勉強": "study",
+  "プログラミング": "programming", "テクノロジー": "technology",
+  "ロボット": "robot", "人工知能": "artificial intelligence",
+  "ファッション": "fashion", "ヘアスタイル": "hairstyle",
+  "インテリア": "interior", "庭": "garden", "植物": "plants",
+  "水彩画": "watercolor", "油絵": "oil painting", "写真": "photography",
+  "夜景": "night view", "イルミネーション": "illumination",
+  "雨": "rain", "虹": "rainbow", "霧": "fog", "嵐": "storm",
+};
+
+// --- Translate Japanese to English (dict → partial match → MyMemory API → fallback) ---
+async function translateToEnglish(jaText) {
+  // 1. Exact dictionary match
+  const dictResult = JA_EN_DICT[jaText];
+  if (dictResult) return dictResult;
+
+  // 2. Partial match (longest key first for better compound word handling)
+  const sortedKeys = Object.keys(JA_EN_DICT).sort((a, b) => b.length - a.length);
+  for (const ja of sortedKeys) {
+    if (jaText.includes(ja)) {
+      return JA_EN_DICT[ja];
+    }
+  }
+
+  // 3. MyMemory Translation API (free, no API key required)
+  try {
+    const res = await fetch(
+      `https://api.mymemory.translated.net/get?q=${encodeURIComponent(jaText)}&langpair=ja|en`
+    );
+    if (res.ok) {
+      const data = await res.json();
+      if (data.responseData && data.responseData.translatedText) {
+        return data.responseData.translatedText;
+      }
+    }
+  } catch {
+    // API failure: fall through to original text
+  }
+
+  // 4. Return original text as-is
+  return jaText;
+}
+
 // --- Font selection by search keyword ---
 const FONT_PATTERNS = [
   { regex: /nature|forest|flower|garden|tree|leaf|plant|green/i, font: "'Playfair Display', serif", bodyFont: "'Source Sans 3', sans-serif" },
@@ -1290,7 +1362,19 @@ export default function Visushift() {
       return [searchQuery, ...filtered].slice(0, 8);
     });
 
-    const results = await fetchImages(searchQuery);
+    // Translate Japanese to English for image search
+    let searchTerm = searchQuery;
+    if (containsJapanese(searchQuery)) {
+      searchTerm = await translateToEnglish(searchQuery);
+    }
+
+    // Re-detect fonts using translated query (English patterns may match)
+    const fontsFromTranslated = detectFonts(searchTerm);
+    if (fontsFromTranslated !== DEFAULT_FONTS) {
+      setTheme((prev) => ({ ...prev, font: fontsFromTranslated.font, bodyFont: fontsFromTranslated.bodyFont }));
+    }
+
+    const results = await fetchImages(searchTerm);
     setImages(results);
 
     // Generate random card styles
