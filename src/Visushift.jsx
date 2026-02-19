@@ -29,122 +29,24 @@ const I18N = {
   },
 };
 
-const THEMES = {
-  nature: {
-    primary: "#2d6a4f",
-    secondary: "#40916c",
-    accent: "#95d5b2",
-    bg: "linear-gradient(135deg, #0b1a0f 0%, #1b4332 50%, #0b1a0f 100%)",
-    cardBg: "rgba(45, 106, 79, 0.15)",
-    border: "rgba(149, 213, 178, 0.25)",
-    glow: "rgba(149, 213, 178, 0.4)",
-    text: "#d8f3dc",
-    subtext: "#95d5b2",
-    font: "'Playfair Display', serif",
-    bodyFont: "'Source Sans 3', sans-serif",
-    emoji: "🌿",
-    mood: { en: "Nature", ja: "自然" },
-  },
-  space: {
-    primary: "#7b2cbf",
-    secondary: "#9d4edd",
-    accent: "#e0aaff",
-    bg: "linear-gradient(135deg, #10002b 0%, #240046 50%, #10002b 100%)",
-    cardBg: "rgba(123, 44, 191, 0.15)",
-    border: "rgba(224, 170, 255, 0.25)",
-    glow: "rgba(224, 170, 255, 0.4)",
-    text: "#e0aaff",
-    subtext: "#c77dff",
-    font: "'Orbitron', sans-serif",
-    bodyFont: "'Exo 2', sans-serif",
-    emoji: "🚀",
-    mood: { en: "Space", ja: "宇宙" },
-  },
-  ocean: {
-    primary: "#0077b6",
-    secondary: "#00b4d8",
-    accent: "#90e0ef",
-    bg: "linear-gradient(135deg, #03071e 0%, #023e8a 50%, #03071e 100%)",
-    cardBg: "rgba(0, 119, 182, 0.15)",
-    border: "rgba(144, 224, 239, 0.25)",
-    glow: "rgba(144, 224, 239, 0.4)",
-    text: "#caf0f8",
-    subtext: "#90e0ef",
-    font: "'Cormorant Garamond', serif",
-    bodyFont: "'Nunito', sans-serif",
-    emoji: "🌊",
-    mood: { en: "Ocean", ja: "海" },
-  },
-  food: {
-    primary: "#e85d04",
-    secondary: "#f48c06",
-    accent: "#ffba08",
-    bg: "linear-gradient(135deg, #1a0a00 0%, #6a2c0a 50%, #1a0a00 100%)",
-    cardBg: "rgba(232, 93, 4, 0.15)",
-    border: "rgba(255, 186, 8, 0.25)",
-    glow: "rgba(255, 186, 8, 0.4)",
-    text: "#ffe8cc",
-    subtext: "#ffba08",
-    font: "'Abril Fatface', serif",
-    bodyFont: "'Lato', sans-serif",
-    emoji: "🍽️",
-    mood: { en: "Food", ja: "料理" },
-  },
-  architecture: {
-    primary: "#6c757d",
-    secondary: "#adb5bd",
-    accent: "#e9ecef",
-    bg: "linear-gradient(135deg, #0a0a0a 0%, #2b2b2b 50%, #0a0a0a 100%)",
-    cardBg: "rgba(108, 117, 125, 0.15)",
-    border: "rgba(233, 236, 239, 0.25)",
-    glow: "rgba(233, 236, 239, 0.3)",
-    text: "#f8f9fa",
-    subtext: "#adb5bd",
-    font: "'DM Serif Display', serif",
-    bodyFont: "'Libre Franklin', sans-serif",
-    emoji: "🏛️",
-    mood: { en: "Architecture", ja: "建築" },
-  },
-  art: {
-    primary: "#c9184a",
-    secondary: "#ff4d6d",
-    accent: "#ff8fa3",
-    bg: "linear-gradient(135deg, #1a0011 0%, #590d22 50%, #1a0011 100%)",
-    cardBg: "rgba(201, 24, 74, 0.15)",
-    border: "rgba(255, 143, 163, 0.25)",
-    glow: "rgba(255, 143, 163, 0.4)",
-    text: "#ffccd5",
-    subtext: "#ff8fa3",
-    font: "'Bodoni Moda', serif",
-    bodyFont: "'Karla', sans-serif",
-    emoji: "🎨",
-    mood: { en: "Art", ja: "アート" },
-  },
-  default: {
-    primary: "#d00000",
-    secondary: "#e85d04",
-    accent: "#ffd60a",
-    bg: "linear-gradient(135deg, #1a0000 0%, #370617 50%, #1a0000 100%)",
-    cardBg: "rgba(208, 0, 0, 0.15)",
-    border: "rgba(255, 214, 10, 0.25)",
-    glow: "rgba(255, 214, 10, 0.4)",
-    text: "#fff1d0",
-    subtext: "#ffd60a",
-    font: "'Sora', sans-serif",
-    bodyFont: "'Outfit', sans-serif",
-    emoji: "🔍",
-    mood: { en: "Explore", ja: "探索" },
-  },
-};
-
-const THEME_PATTERNS = [
-  { key: "nature", regex: /nature|forest|flower|garden|tree|leaf|plant|green/i },
-  { key: "space", regex: /space|galaxy|star|planet|cosmos|universe|nebula|astronaut/i },
-  { key: "ocean", regex: /ocean|sea|beach|underwater|wave|marine|coral|fish/i },
-  { key: "food", regex: /food|cook|recipe|sushi|cake|pizza|restaurant|meal|cuisine|dish/i },
-  { key: "architecture", regex: /building|house|city|tower|architecture|bridge|skyscraper|urban/i },
-  { key: "art", regex: /art|paint|museum|abstract|drawing|sculpture|gallery|canvas/i },
+// --- Font selection by search keyword ---
+const FONT_PATTERNS = [
+  { regex: /nature|forest|flower|garden|tree|leaf|plant|green/i, font: "'Playfair Display', serif", bodyFont: "'Source Sans 3', sans-serif" },
+  { regex: /space|galaxy|star|planet|cosmos|universe|nebula|astronaut/i, font: "'Orbitron', sans-serif", bodyFont: "'Exo 2', sans-serif" },
+  { regex: /ocean|sea|beach|underwater|wave|marine|coral|fish/i, font: "'Cormorant Garamond', serif", bodyFont: "'Nunito', sans-serif" },
+  { regex: /food|cook|recipe|sushi|cake|pizza|restaurant|meal|cuisine|dish/i, font: "'Abril Fatface', serif", bodyFont: "'Lato', sans-serif" },
+  { regex: /building|house|city|tower|architecture|bridge|skyscraper|urban/i, font: "'DM Serif Display', serif", bodyFont: "'Libre Franklin', sans-serif" },
+  { regex: /art|paint|museum|abstract|drawing|sculpture|gallery|canvas/i, font: "'Bodoni Moda', serif", bodyFont: "'Karla', sans-serif" },
 ];
+const DEFAULT_FONTS = { font: "'Sora', sans-serif", bodyFont: "'Outfit', sans-serif" };
+
+function detectFonts(query) {
+  if (!query) return DEFAULT_FONTS;
+  for (const { regex, font, bodyFont } of FONT_PATTERNS) {
+    if (regex.test(query)) return { font, bodyFont };
+  }
+  return DEFAULT_FONTS;
+}
 
 const SUGGEST_CHIPS = {
   en: ["Nature", "Space", "Ocean", "Food", "Architecture", "Art", "Mountains", "Flowers", "Cities", "Animals"],
@@ -154,14 +56,134 @@ const SUGGEST_CHIPS = {
 const GOOGLE_FONTS_URL =
   "https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Source+Sans+3:wght@400;600&family=Orbitron:wght@400;700&family=Exo+2:wght@400;600&family=Cormorant+Garamond:wght@400;700&family=Nunito:wght@400;600&family=Abril+Fatface&family=Lato:wght@400;700&family=DM+Serif+Display&family=Libre+Franklin:wght@400;600&family=Bodoni+Moda:wght@400;700&family=Karla:wght@400;600&family=Sora:wght@400;700&family=Outfit:wght@400;600&display=swap";
 
-function detectTheme(query) {
-  if (!query) return "default";
-  for (const { key, regex } of THEME_PATTERNS) {
-    if (regex.test(query)) return key;
-  }
-  return "default";
+// --- Default theme (pre-search) ---
+function makeDefaultTheme() {
+  return {
+    primary: "rgb(30, 30, 60)",
+    secondary: "rgb(60, 60, 120)",
+    accent: "rgb(200, 180, 255)",
+    bg: "linear-gradient(135deg, rgb(6, 6, 18) 0%, rgb(18, 18, 48) 50%, rgb(6, 6, 18) 100%)",
+    cardBg: "rgba(30, 30, 60, 0.15)",
+    border: "rgba(200, 180, 255, 0.25)",
+    glow: "rgba(200, 180, 255, 0.4)",
+    text: "rgb(230, 220, 255)",
+    subtext: "rgb(200, 180, 255)",
+    font: DEFAULT_FONTS.font,
+    bodyFont: DEFAULT_FONTS.bodyFont,
+  };
 }
 
+// --- Color extraction from image via Canvas ---
+function extractColor(imageUrl) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      try {
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+        canvas.width = 50;
+        canvas.height = 50;
+        ctx.drawImage(img, 0, 0, 50, 50);
+        const data = ctx.getImageData(0, 0, 50, 50).data;
+        let r = 0, g = 0, b = 0, count = 0;
+        for (let i = 0; i < data.length; i += 16) {
+          if (data[i] + data[i + 1] + data[i + 2] > 30 &&
+              data[i] + data[i + 1] + data[i + 2] < 700) {
+            r += data[i];
+            g += data[i + 1];
+            b += data[i + 2];
+            count++;
+          }
+        }
+        if (count === 0) { resolve({ r: 30, g: 30, b: 60 }); return; }
+        resolve({ r: Math.round(r / count), g: Math.round(g / count), b: Math.round(b / count) });
+      } catch {
+        resolve({ r: 30, g: 30, b: 60 });
+      }
+    };
+    img.onerror = () => resolve({ r: 30, g: 30, b: 60 });
+    img.src = imageUrl;
+  });
+}
+
+// Parse HEX color string to {r, g, b}
+function hexToRgb(hex) {
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  if (!result) return null;
+  return { r: parseInt(result[1], 16), g: parseInt(result[2], 16), b: parseInt(result[3], 16) };
+}
+
+// Compute saturation for an {r, g, b}
+function saturation(c) {
+  const max = Math.max(c.r, c.g, c.b);
+  const min = Math.min(c.r, c.g, c.b);
+  if (max === 0) return 0;
+  return (max - min) / max;
+}
+
+// --- Palette generation from extracted colors ---
+function generatePalette(colors) {
+  if (!colors.length) {
+    return { primary: { r: 30, g: 30, b: 60 }, secondary: { r: 60, g: 60, b: 120 }, accent: { r: 200, g: 180, b: 255 } };
+  }
+  const avg = { r: 0, g: 0, b: 0 };
+  for (const c of colors) {
+    avg.r += c.r; avg.g += c.g; avg.b += c.b;
+  }
+  avg.r = Math.round(avg.r / colors.length);
+  avg.g = Math.round(avg.g / colors.length);
+  avg.b = Math.round(avg.b / colors.length);
+
+  const primary = {
+    r: Math.round(avg.r * 0.7),
+    g: Math.round(avg.g * 0.7),
+    b: Math.round(avg.b * 0.7),
+  };
+  const secondary = {
+    r: Math.min(255, Math.round(avg.r * 1.2)),
+    g: Math.min(255, Math.round(avg.g * 1.2)),
+    b: Math.min(255, Math.round(avg.b * 1.2)),
+  };
+
+  // accent: pick the most saturated color and boost it
+  let accentBase = colors[0];
+  let maxSat = 0;
+  for (const c of colors) {
+    const s = saturation(c);
+    if (s > maxSat) { maxSat = s; accentBase = c; }
+  }
+  const accent = {
+    r: Math.min(255, Math.round(accentBase.r * 1.3 + 40)),
+    g: Math.min(255, Math.round(accentBase.g * 1.3 + 40)),
+    b: Math.min(255, Math.round(accentBase.b * 1.3 + 40)),
+  };
+
+  return { primary, secondary, accent };
+}
+
+// --- Dynamic theme creation from palette ---
+function createDynamicTheme(palette, fonts) {
+  const { primary, secondary, accent } = palette;
+
+  const clamp = (v) => Math.min(255, Math.max(0, Math.round(v)));
+
+  return {
+    primary: `rgb(${primary.r}, ${primary.g}, ${primary.b})`,
+    secondary: `rgb(${secondary.r}, ${secondary.g}, ${secondary.b})`,
+    accent: `rgb(${accent.r}, ${accent.g}, ${accent.b})`,
+    bg: `linear-gradient(135deg, rgb(${clamp(primary.r * 0.1)}, ${clamp(primary.g * 0.1)}, ${clamp(primary.b * 0.1)}) 0%, rgb(${clamp(primary.r * 0.3)}, ${clamp(primary.g * 0.3)}, ${clamp(primary.b * 0.3)}) 50%, rgb(${clamp(primary.r * 0.1)}, ${clamp(primary.g * 0.1)}, ${clamp(primary.b * 0.1)}) 100%)`,
+    cardBg: `rgba(${primary.r}, ${primary.g}, ${primary.b}, 0.15)`,
+    border: `rgba(${accent.r}, ${accent.g}, ${accent.b}, 0.25)`,
+    glow: `rgba(${accent.r}, ${accent.g}, ${accent.b}, 0.4)`,
+    text: `rgb(${clamp(accent.r * 0.5 + 170)}, ${clamp(accent.g * 0.5 + 160)}, ${clamp(accent.b * 0.5 + 170)})`,
+    subtext: `rgb(${clamp(accent.r * 0.8 + 60)}, ${clamp(accent.g * 0.8 + 50)}, ${clamp(accent.b * 0.8 + 60)})`,
+    font: fonts.font,
+    bodyFont: fonts.bodyFont,
+  };
+}
+
+// --- Image fetching ---
 async function fetchImages(query) {
   if (UNSPLASH_ACCESS_KEY) {
     try {
@@ -175,6 +197,7 @@ async function fetchImages(query) {
         url: photo.urls.regular,
         title: photo.description || photo.alt_description || query,
         source: photo.user.name,
+        color: photo.color,
       }));
     } catch {
       // fall through to Picsum
@@ -188,10 +211,25 @@ async function fetchImages(query) {
       url: `https://picsum.photos/seed/${encodeURIComponent(query)}${i}/${w}/${h}`,
       title: `${query} #${i + 1}`,
       source: "Picsum Photos",
+      color: null,
     };
   });
 }
 
+// --- Extract colors from images (use Unsplash color if available, else Canvas) ---
+async function extractColorsFromImages(images, count) {
+  const targets = images.slice(0, count);
+  const colorPromises = targets.map((img) => {
+    if (img.color) {
+      const parsed = hexToRgb(img.color);
+      if (parsed) return Promise.resolve(parsed);
+    }
+    return extractColor(img.url);
+  });
+  return Promise.all(colorPromises);
+}
+
+// --- GlobalStyles ---
 function GlobalStyles({ theme }) {
   return (
     <>
@@ -217,10 +255,10 @@ function GlobalStyles({ theme }) {
           0%, 100% { transform: translateY(0px); }
           50% { transform: translateY(-20px); }
         }
-        @keyframes floatParticle {
-          0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.3; }
-          33% { transform: translate(30px, -40px) scale(1.1); opacity: 0.5; }
-          66% { transform: translate(-20px, 20px) scale(0.9); opacity: 0.2; }
+        @keyframes floatBlurImage {
+          0%, 100% { transform: translate(0, 0) scale(1); }
+          33% { transform: translate(30px, -25px) scale(1.03); }
+          66% { transform: translate(-20px, 15px) scale(0.97); }
         }
         @keyframes spin {
           from { transform: rotate(0deg); }
@@ -234,36 +272,82 @@ function GlobalStyles({ theme }) {
           0%, 100% { box-shadow: 0 0 5px ${theme.glow}; }
           50% { box-shadow: 0 0 20px ${theme.glow}, 0 0 40px ${theme.glow}; }
         }
+        @keyframes bgImageFadeIn {
+          from { opacity: 0; }
+          to { opacity: 0.4; }
+        }
       `}</style>
     </>
   );
 }
 
-function Particles({ theme }) {
-  const particles = Array.from({ length: 6 }, (_, i) => i);
+// --- Background layers (immersive image-based background) ---
+function ImmersiveBackground({ bgImages, theme }) {
+  // bgImages: array of image URLs for the blurred collage
+  // Only render when there are images (search results displayed)
+  if (!bgImages || bgImages.length === 0) return null;
+
+  // Deterministic but varied positions for each image
+  const positions = [
+    { top: "-10%", left: "-5%" },
+    { top: "-5%", left: "40%" },
+    { top: "30%", left: "-10%" },
+    { top: "35%", left: "50%" },
+    { top: "60%", left: "10%" },
+    { top: "55%", left: "55%" },
+  ];
+
   return (
-    <div style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 0, overflow: "hidden" }}>
-      {particles.map((i) => (
-        <div
-          key={i}
+    <div style={{ position: "fixed", inset: 0, zIndex: 0, pointerEvents: "none", overflow: "hidden" }}>
+      {/* Layer 1: Blurred image collage */}
+      {bgImages.map((url, i) => (
+        <img
+          key={`bg-${i}`}
+          src={url}
+          alt=""
+          crossOrigin="anonymous"
           style={{
             position: "absolute",
-            width: 120 + i * 40,
-            height: 120 + i * 40,
-            borderRadius: "50%",
-            background: `radial-gradient(circle, ${theme.glow} 0%, transparent 70%)`,
-            filter: "blur(40px)",
-            opacity: 0.25,
-            top: `${10 + ((i * 37) % 70)}%`,
-            left: `${5 + ((i * 53) % 80)}%`,
-            animation: `floatParticle ${8 + i * 2}s ease-in-out ${i * 1.5}s infinite`,
+            width: `${55 + (i % 3) * 8}vw`,
+            height: "auto",
+            top: positions[i % positions.length].top,
+            left: positions[i % positions.length].left,
+            filter: "blur(60px) saturate(1.5) brightness(0.3)",
+            opacity: 0,
+            animation: `bgImageFadeIn 1.2s ease ${i * 0.15}s forwards, floatBlurImage ${17 + i * 2}s ease-in-out ${i * 1.2}s infinite`,
+            objectFit: "cover",
+            zIndex: 0,
           }}
         />
       ))}
+
+      {/* Layer 2: Gradient overlay from extracted colors */}
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          background: theme.bg,
+          opacity: 0.6,
+          mixBlendMode: "multiply",
+          zIndex: 1,
+          transition: "background 0.8s ease",
+        }}
+      />
+
+      {/* Layer 3: Dark veil for readability */}
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          background: "rgba(0, 0, 0, 0.3)",
+          zIndex: 2,
+        }}
+      />
     </div>
   );
 }
 
+// --- Header ---
 function Header({ theme, query, onSearch, onReset, lang, onToggleLang, t }) {
   const [input, setInput] = useState("");
   const [focused, setFocused] = useState(false);
@@ -316,7 +400,6 @@ function Header({ theme, query, onSearch, onReset, lang, onToggleLang, t }) {
           userSelect: "none",
         }}
       >
-        <span style={{ fontSize: 28 }}>{theme.emoji}</span>
         <span
           style={{
             fontFamily: theme.font,
@@ -413,38 +496,20 @@ function Header({ theme, query, onSearch, onReset, lang, onToggleLang, t }) {
         </button>
         <div
           style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
+            width: 10,
+            height: 10,
+            borderRadius: "50%",
+            background: theme.accent,
+            boxShadow: `0 0 8px ${theme.glow}`,
+            transition: "all 0.8s ease",
           }}
-        >
-          <div
-            style={{
-              width: 10,
-              height: 10,
-              borderRadius: "50%",
-              background: theme.accent,
-              boxShadow: `0 0 8px ${theme.glow}`,
-              transition: "all 0.8s ease",
-            }}
-          />
-          <span
-            style={{
-              fontSize: 13,
-              color: theme.subtext,
-              fontFamily: theme.bodyFont,
-              fontWeight: 600,
-              transition: "color 0.8s ease",
-            }}
-          >
-            {theme.mood[lang]}
-          </span>
-        </div>
+        />
       </div>
     </header>
   );
 }
 
+// --- Landing page ---
 function Landing({ theme, onSearch, history, lang, t }) {
   return (
     <div
@@ -461,13 +526,16 @@ function Landing({ theme, onSearch, history, lang, t }) {
     >
       <div
         style={{
-          fontSize: 80,
+          width: 80,
+          height: 80,
+          borderRadius: "50%",
+          background: `linear-gradient(135deg, ${theme.accent}, ${theme.secondary})`,
+          opacity: 0.7,
           animation: "float 3s ease-in-out infinite",
           marginBottom: 24,
+          filter: "blur(1px)",
         }}
-      >
-        {theme.emoji}
-      </div>
+      />
       <h1
         style={{
           fontFamily: theme.font,
@@ -525,7 +593,7 @@ function Landing({ theme, onSearch, history, lang, t }) {
               backdropFilter: "blur(10px)",
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.background = `${theme.primary}44`;
+              e.currentTarget.style.background = `rgba(${100}, ${100}, ${200}, 0.25)`;
               e.currentTarget.style.borderColor = theme.accent;
               e.currentTarget.style.transform = "translateY(-2px)";
               e.currentTarget.style.boxShadow = `0 4px 15px ${theme.glow}`;
@@ -590,11 +658,21 @@ function Landing({ theme, onSearch, history, lang, t }) {
   );
 }
 
+// --- ImageCard with per-card color glow on hover ---
 function ImageCard({ image, index, theme, onClick, t }) {
   const [loaded, setLoaded] = useState(false);
   const [hovered, setHovered] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState(false);
+
+  // Determine per-card glow color from image.color (Unsplash HEX) or fallback
+  const cardGlow = (() => {
+    if (image.color) {
+      const parsed = hexToRgb(image.color);
+      if (parsed) return `rgba(${parsed.r}, ${parsed.g}, ${parsed.b}, 0.37)`;
+    }
+    return theme.glow;
+  })();
 
   if (error) {
     return (
@@ -640,7 +718,7 @@ function ImageCard({ image, index, theme, onClick, t }) {
         position: "relative",
         transition: "all 0.4s cubic-bezier(0.23, 1, 0.32, 1)",
         transform: hovered ? "translateY(-4px) scale(1.02)" : "translateY(0) scale(1)",
-        boxShadow: hovered ? `0 8px 30px ${theme.glow}` : "none",
+        boxShadow: hovered ? `0 8px 40px ${cardGlow}` : "none",
         animation: loaded ? `fadeSlideUp 0.5s cubic-bezier(0.23, 1, 0.32, 1) ${index * 60}ms both` : "none",
         opacity: loaded ? undefined : 0,
       }}
@@ -738,6 +816,7 @@ function ImageCard({ image, index, theme, onClick, t }) {
   );
 }
 
+// --- Responsive column count ---
 function useColumnCount() {
   const [columns, setColumns] = useState(() => {
     if (typeof window === "undefined") return 4;
@@ -763,6 +842,7 @@ function useColumnCount() {
   return columns;
 }
 
+// --- Search results header ---
 function SearchResultsHeader({ query, count, theme, t }) {
   return (
     <div
@@ -777,20 +857,17 @@ function SearchResultsHeader({ query, count, theme, t }) {
         zIndex: 1,
       }}
     >
-      <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
-        <span style={{ fontSize: 22 }}>{theme.emoji}</span>
-        <h2
-          style={{
-            fontFamily: theme.font,
-            fontSize: 24,
-            fontWeight: 700,
-            color: theme.text,
-            transition: "color 0.8s ease",
-          }}
-        >
-          {query}
-        </h2>
-      </div>
+      <h2
+        style={{
+          fontFamily: theme.font,
+          fontSize: 24,
+          fontWeight: 700,
+          color: theme.text,
+          transition: "color 0.8s ease",
+        }}
+      >
+        {query}
+      </h2>
       <span
         style={{
           fontFamily: theme.bodyFont,
@@ -806,6 +883,7 @@ function SearchResultsHeader({ query, count, theme, t }) {
   );
 }
 
+// --- Masonry grid ---
 function MasonryGrid({ images, theme, onImageClick, t }) {
   const columnCount = useColumnCount();
   const columns = Array.from({ length: columnCount }, () => []);
@@ -843,6 +921,7 @@ function MasonryGrid({ images, theme, onImageClick, t }) {
   );
 }
 
+// --- Lightbox ---
 function Lightbox({ image, theme, onClose }) {
   useEffect(() => {
     if (!image) return;
@@ -925,6 +1004,7 @@ function Lightbox({ image, theme, onClose }) {
   );
 }
 
+// --- Loading spinner ---
 function Loading({ theme, t }) {
   return (
     <div
@@ -956,6 +1036,9 @@ function Loading({ theme, t }) {
   );
 }
 
+// ======================
+// Main App Component
+// ======================
 export default function Visushift() {
   const [query, setQuery] = useState("");
   const [images, setImages] = useState([]);
@@ -963,10 +1046,10 @@ export default function Visushift() {
   const [searched, setSearched] = useState(false);
   const [lightboxImage, setLightboxImage] = useState(null);
   const [history, setHistory] = useState([]);
-  const [themeKey, setThemeKey] = useState("default");
+  const [theme, setTheme] = useState(makeDefaultTheme);
+  const [bgImages, setBgImages] = useState([]);
   const [lang, setLang] = useState("en");
 
-  const theme = THEMES[themeKey];
   const t = I18N[lang];
 
   const handleToggleLang = useCallback(() => {
@@ -977,8 +1060,13 @@ export default function Visushift() {
     setQuery(searchQuery);
     setSearched(true);
     setLoading(true);
-    setThemeKey(detectTheme(searchQuery));
     setImages([]);
+    setBgImages([]);
+
+    // Detect fonts immediately from query
+    const fonts = detectFonts(searchQuery);
+    // Apply fonts to current (default) theme immediately
+    setTheme((prev) => ({ ...prev, font: fonts.font, bodyFont: fonts.bodyFont }));
 
     setHistory((prev) => {
       const filtered = prev.filter((h) => h.toLowerCase() !== searchQuery.toLowerCase());
@@ -988,13 +1076,28 @@ export default function Visushift() {
     const results = await fetchImages(searchQuery);
     setImages(results);
     setLoading(false);
+
+    // Set background images (first 6)
+    const bgUrls = results.slice(0, 6).map((img) => img.url);
+    setBgImages(bgUrls);
+
+    // Extract colors from first 5 images and generate dynamic theme
+    try {
+      const colors = await extractColorsFromImages(results, 5);
+      const palette = generatePalette(colors);
+      const dynamicTheme = createDynamicTheme(palette, fonts);
+      setTheme(dynamicTheme);
+    } catch {
+      // If color extraction fails, keep default theme with fonts applied
+    }
   }, []);
 
   const handleReset = useCallback(() => {
     setQuery("");
     setImages([]);
     setSearched(false);
-    setThemeKey("default");
+    setBgImages([]);
+    setTheme(makeDefaultTheme());
   }, []);
 
   const closeLightbox = useCallback(() => setLightboxImage(null), []);
@@ -1013,7 +1116,7 @@ export default function Visushift() {
   return (
     <>
       <GlobalStyles theme={theme} />
-      <Particles theme={theme} />
+      <ImmersiveBackground bgImages={bgImages} theme={theme} />
       <Header theme={theme} query={query} onSearch={handleSearch} onReset={handleReset} lang={lang} onToggleLang={handleToggleLang} t={t} />
 
       {!searched ? (
