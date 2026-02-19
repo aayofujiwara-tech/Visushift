@@ -379,7 +379,7 @@ function GlobalStyles({ theme }) {
         }
         @keyframes bgImageFadeIn {
           from { opacity: 0; }
-          to { opacity: 0.7; }
+          to { opacity: 0.75; }
         }
       `}</style>
     </>
@@ -417,7 +417,7 @@ function ImmersiveBackground({ bgImages, theme }) {
             height: "auto",
             top: positions[i % positions.length].top,
             left: positions[i % positions.length].left,
-            filter: "blur(35px) saturate(2.8) brightness(0.65) contrast(1.3)",
+            filter: "blur(30px) saturate(3) brightness(0.7) contrast(1.3)",
             opacity: 0,
             animation: `bgImageFadeIn 1.2s ease ${i * 0.15}s forwards, floatBlurImage ${17 + i * 2}s ease-in-out ${i * 1.2}s infinite`,
             objectFit: "cover",
@@ -444,7 +444,7 @@ function ImmersiveBackground({ bgImages, theme }) {
         style={{
           position: "absolute",
           inset: 0,
-          background: "rgba(0, 0, 0, 0.1)",
+          background: "rgba(0, 0, 0, 0.08)",
           zIndex: 2,
         }}
       />
@@ -863,7 +863,7 @@ function ImageCard({ image, index, theme, onClick, t, cardStyle }) {
         style={{
           width: "100%",
           display: "block",
-          maxHeight: isMobile ? "none" : 350,
+          maxHeight: isMobile ? "none" : 260,
           objectFit: "cover",
           filter: hovered ? "brightness(1.1)" : "brightness(1)",
           transition: "filter 0.4s ease",
@@ -947,38 +947,6 @@ function ImageCard({ image, index, theme, onClick, t, cardStyle }) {
   );
 }
 
-// --- Responsive column count ---
-function useColumnCount(layoutModeName) {
-  const getColumnCount = useCallback((w) => {
-    if (layoutModeName === "compact") {
-      if (w >= 1200) return 5;
-      if (w >= 768) return 3;
-      if (w >= 480) return 2;
-      return 1;
-    }
-    if (w >= 1200) return 4;
-    if (w >= 768) return 3;
-    if (w >= 480) return 2;
-    return 1;
-  }, [layoutModeName]);
-
-  const [columns, setColumns] = useState(() => {
-    if (typeof window === "undefined") return 4;
-    return getColumnCount(window.innerWidth);
-  });
-
-  useEffect(() => {
-    const handleResize = () => {
-      setColumns(getColumnCount(window.innerWidth));
-    };
-    setColumns(getColumnCount(window.innerWidth));
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, [getColumnCount]);
-
-  return columns;
-}
-
 // --- Search results header ---
 function SearchResultsHeader({ query, count, theme, t }) {
   return (
@@ -989,10 +957,10 @@ function SearchResultsHeader({ query, count, theme, t }) {
         alignItems: "baseline",
         padding: "16px 24px",
         maxWidth: "100%",
-        margin: "24px 48px 12px",
+        margin: "24px 64px 0",
         position: "relative",
         zIndex: 1,
-        background: "rgba(0, 0, 0, 0.2)",
+        background: "rgba(0, 0, 0, 0.15)",
         backdropFilter: "blur(10px)",
         WebkitBackdropFilter: "blur(10px)",
         borderRadius: 12,
@@ -1024,54 +992,117 @@ function SearchResultsHeader({ query, count, theme, t }) {
   );
 }
 
-// --- Masonry grid ---
-function MasonryGrid({ images, theme, onImageClick, t, layoutMode, cardStyles }) {
-  const columnCount = useColumnCount(layoutMode.name);
-  const columns = Array.from({ length: columnCount }, () => []);
-  images.forEach((img, i) => {
-    columns[i % columnCount].push({ ...img, _index: i });
-  });
+// --- Scatter layout: cards positioned freely like photos on a wall ---
+function ScatterLayout({ images, theme, onImageClick, t, cardStyles }) {
+  const containerRef = useRef(null);
+  const [positions, setPositions] = useState([]);
+  const isMobile = typeof window !== "undefined" && window.innerWidth < 480;
+  const isTablet = typeof window !== "undefined" && window.innerWidth >= 480 && window.innerWidth < 768;
 
-  // Flex ratios for asymmetric mode
-  const getFlexRatios = (count) => {
-    if (layoutMode.name !== "asymmetric") return Array(count).fill(1);
-    const options = ASYMMETRIC_RATIOS[count] || [[1]];
-    const idx = (layoutMode.flexPatternIndex || 0) % options.length;
-    return options[idx];
-  };
-  const flexRatios = getFlexRatios(columnCount);
+  // Card size (smaller on PC for more background visibility)
+  const cardWidth = isMobile ? 280 : isTablet ? 220 : 240;
 
-  return (
-    <div
-      style={{
+  // Limit displayed images (scatter doesn't need all 20)
+  const displayCount = isMobile ? 8 : isTablet ? 12 : 16;
+  const displayImages = images.slice(0, displayCount);
+
+  useEffect(() => {
+    const containerWidth = window.innerWidth;
+    const cols = isMobile ? 1 : isTablet ? 2 : 4;
+    const rows = Math.ceil(displayImages.length / cols);
+    const cellWidth = containerWidth / cols;
+    const cellHeight = isMobile ? 320 : 380;
+
+    const newPositions = displayImages.map((_, i) => {
+      const col = i % cols;
+      const row = Math.floor(i / cols);
+
+      // Cell center as base, then add random offset
+      const baseCenterX = col * cellWidth + cellWidth / 2 - cardWidth / 2;
+      const baseCenterY = row * cellHeight + cellHeight / 2 - 140;
+
+      // Large random offsets for scatter effect
+      const offsetX = isMobile ? 0 : (Math.sin((_globalSeed + i * 3571) * 0.0001) * cellWidth * 0.25);
+      const offsetY = isMobile ? 0 : (Math.cos((_globalSeed + i * 7919) * 0.0001) * cellHeight * 0.2);
+
+      return {
+        x: Math.max(16, Math.min(containerWidth - cardWidth - 16, baseCenterX + offsetX)),
+        y: baseCenterY + offsetY,
+      };
+    });
+
+    setPositions(newPositions);
+  }, [displayImages.length, isMobile, isTablet, cardWidth]);
+
+  // Calculate container height from card positions
+  const containerHeight = positions.length > 0
+    ? Math.max(...positions.map(p => p.y)) + 400
+    : 800;
+
+  // Mobile: simple vertical flow with generous gap
+  if (isMobile) {
+    return (
+      <div style={{
         display: "flex",
-        gap: layoutMode.gap,
-        padding: "24px 48px 80px",
-        maxWidth: layoutMode.name === "compact" ? 1200 : 1400,
-        margin: "0 auto",
+        flexDirection: "column",
+        alignItems: "center",
+        gap: 32,
+        padding: "24px 16px 80px",
         position: "relative",
         zIndex: 1,
-        background: "rgba(0, 0, 0, 0.05)",
-        borderRadius: 16,
-        backdropFilter: "blur(5px)",
-        WebkitBackdropFilter: "blur(5px)",
-      }}
-    >
-      {columns.map((col, ci) => (
-        <div key={ci} style={{ flex: flexRatios[ci], display: "flex", flexDirection: "column", gap: layoutMode.gap }}>
-          {col.map((img) => (
+      }}>
+        {displayImages.map((img, i) => (
+          <div key={img.id} style={{ width: "100%", maxWidth: 340 }}>
             <ImageCard
-              key={img.id}
               image={img}
-              index={img._index}
+              index={i}
               theme={theme}
               onClick={onImageClick}
               t={t}
-              cardStyle={cardStyles[img._index] || null}
+              cardStyle={cardStyles[i] || null}
             />
-          ))}
-        </div>
-      ))}
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div
+      ref={containerRef}
+      style={{
+        position: "relative",
+        width: "100%",
+        minHeight: containerHeight,
+        zIndex: 1,
+        padding: "20px 0",
+      }}
+    >
+      {displayImages.map((img, i) => {
+        const pos = positions[i];
+        if (!pos) return null;
+        return (
+          <div
+            key={img.id}
+            style={{
+              position: "absolute",
+              left: pos.x,
+              top: pos.y,
+              width: cardWidth,
+              transition: "left 0.6s cubic-bezier(0.23, 1, 0.32, 1), top 0.6s cubic-bezier(0.23, 1, 0.32, 1)",
+            }}
+          >
+            <ImageCard
+              image={img}
+              index={i}
+              theme={theme}
+              onClick={onImageClick}
+              t={t}
+              cardStyle={cardStyles[i] || null}
+            />
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -1245,12 +1276,12 @@ export default function Visushift() {
 
     // Generate random card styles
     const styles = results.map((_, i) => ({
-      borderRadius: randomInRange(6, 32, i),
-      rotation: randomInRange(-3.5, 3.5, i),
-      scale: randomInRange(0.88, 1.0, i),
-      paddingBottom: randomInRange(0, 16, i),
-      marginTop: randomInRange(-8, 8, i),
-      marginLeft: randomInRange(-4, 4, i),
+      borderRadius: randomInRange(8, 32, i),
+      rotation: randomInRange(-6, 6, i),
+      scale: randomInRange(0.85, 1.1, i),
+      paddingBottom: randomInRange(0, 8, i),
+      marginTop: 0,
+      marginLeft: 0,
     }));
     setCardStyles(styles);
 
@@ -1317,7 +1348,7 @@ export default function Visushift() {
       ) : (
         <>
           <SearchResultsHeader query={query} count={images.length} theme={theme} t={t} />
-          <MasonryGrid images={images} theme={theme} onImageClick={setLightboxImage} t={t} layoutMode={layoutMode} cardStyles={cardStyles} />
+          <ScatterLayout images={images} theme={theme} onImageClick={setLightboxImage} t={t} cardStyles={cardStyles} />
         </>
       )}
 
