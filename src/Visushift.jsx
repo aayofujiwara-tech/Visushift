@@ -582,10 +582,13 @@ function Header({ theme, query, onSearch, onReset, lang, onToggleLang, t, layout
             fontFamily: theme.font,
             fontSize: 22,
             fontWeight: 700,
-            background: `linear-gradient(135deg, ${theme.accent}, ${theme.secondary})`,
+            color: theme.text,
+            background: `linear-gradient(135deg, ${theme.text}, ${theme.accent})`,
             WebkitBackgroundClip: "text",
             WebkitTextFillColor: "transparent",
+            backgroundClip: "text",
             transition: "all 0.8s ease",
+            letterSpacing: 0.5,
           }}
         >
           Visushift
@@ -840,47 +843,91 @@ function Landing({ theme, onSearch, history, lang, t }) {
   );
 }
 
-// --- Generate frame colors from image color or theme ---
-function generateFrameColors(imageColor, theme) {
+// --- Generate realistic frame style from image color ---
+function generateFrameStyle(imageColor, theme, index) {
+  let baseColor = { r: 80, g: 60, b: 40 }; // Default: dark wood
+
   if (imageColor) {
     const c = hexToRgb(imageColor);
-    if (c) {
-      // Frame body: darken image color
-      const frame = {
-        r: Math.max(0, Math.round(c.r * 0.35)),
-        g: Math.max(0, Math.round(c.g * 0.35)),
-        b: Math.max(0, Math.round(c.b * 0.35)),
-      };
-      // Mat: very light version (off-white tint)
-      const mat = {
-        r: Math.min(255, Math.round(c.r * 0.3 + 200)),
-        g: Math.min(255, Math.round(c.g * 0.3 + 195)),
-        b: Math.min(255, Math.round(c.b * 0.3 + 190)),
-      };
-      // Accent line: gold-ish tint
-      const accent = {
-        r: Math.min(255, Math.round(c.r * 0.5 + 140)),
-        g: Math.min(255, Math.round(c.g * 0.4 + 120)),
-        b: Math.min(255, Math.round(c.b * 0.2 + 60)),
-      };
-      return {
-        frame: `rgb(${frame.r}, ${frame.g}, ${frame.b})`,
-        mat: `rgb(${mat.r}, ${mat.g}, ${mat.b})`,
-        accent: `rgb(${accent.r}, ${accent.g}, ${accent.b})`,
-        shadow: `rgba(${frame.r}, ${frame.g}, ${frame.b}, 0.5)`,
-      };
-    }
+    if (c) baseColor = c;
   }
-  // Fallback: theme-based
+
+  // Calculate luminance and saturation from image color
+  const luminance = (baseColor.r * 0.299 + baseColor.g * 0.587 + baseColor.b * 0.114) / 255;
+  const sat = saturation(baseColor);
+  const warmth = baseColor.r - baseColor.b;
+
+  // Determine frame type based on image color characteristics
+  let frameType;
+  if (warmth > 30 && luminance < 0.5) {
+    frameType = "darkWood";
+  } else if (warmth > 30 && luminance >= 0.5) {
+    frameType = "lightWood";
+  } else if (warmth < -20 && sat > 0.3) {
+    frameType = "silver";
+  } else if (luminance > 0.6) {
+    frameType = "white";
+  } else if (sat > 0.5) {
+    frameType = "gold";
+  } else {
+    frameType = "darkWood";
+  }
+
+  const FRAME_STYLES = {
+    darkWood: {
+      outerLight: `rgb(${Math.min(255, Math.round(baseColor.r * 0.3 + 70))}, ${Math.min(255, Math.round(baseColor.g * 0.2 + 45))}, ${Math.min(255, Math.round(baseColor.b * 0.1 + 25))})`,
+      outerDark: `rgb(${Math.max(0, Math.round(baseColor.r * 0.15 + 20))}, ${Math.max(0, Math.round(baseColor.g * 0.1 + 12))}, ${Math.max(0, Math.round(baseColor.b * 0.05 + 5))})`,
+      outerMid: `rgb(${Math.min(255, Math.round(baseColor.r * 0.25 + 50))}, ${Math.min(255, Math.round(baseColor.g * 0.15 + 30))}, ${Math.min(255, Math.round(baseColor.b * 0.08 + 15))})`,
+      grooveColor: "rgba(0, 0, 0, 0.6)",
+      matColor: `rgb(${Math.min(255, Math.round(baseColor.r * 0.15 + 225))}, ${Math.min(255, Math.round(baseColor.g * 0.12 + 220))}, ${Math.min(255, Math.round(baseColor.b * 0.1 + 215))})`,
+      innerEdge: `rgba(${Math.min(255, Math.round(baseColor.r * 0.3 + 150))}, ${Math.min(255, Math.round(baseColor.g * 0.25 + 130))}, ${Math.min(255, Math.round(baseColor.b * 0.1 + 60))}, 0.6)`,
+      shadowColor: "rgba(20, 10, 5, 0.6)",
+    },
+    lightWood: {
+      outerLight: `rgb(${Math.min(255, Math.round(baseColor.r * 0.2 + 190))}, ${Math.min(255, Math.round(baseColor.g * 0.2 + 165))}, ${Math.min(255, Math.round(baseColor.b * 0.1 + 120))})`,
+      outerDark: `rgb(${Math.min(255, Math.round(baseColor.r * 0.2 + 140))}, ${Math.min(255, Math.round(baseColor.g * 0.15 + 110))}, ${Math.min(255, Math.round(baseColor.b * 0.1 + 70))})`,
+      outerMid: `rgb(${Math.min(255, Math.round(baseColor.r * 0.2 + 170))}, ${Math.min(255, Math.round(baseColor.g * 0.18 + 140))}, ${Math.min(255, Math.round(baseColor.b * 0.1 + 95))})`,
+      grooveColor: "rgba(80, 50, 20, 0.4)",
+      matColor: "rgb(250, 247, 242)",
+      innerEdge: "rgba(200, 175, 120, 0.5)",
+      shadowColor: "rgba(60, 40, 20, 0.4)",
+    },
+    gold: {
+      outerLight: `rgb(${Math.min(255, Math.round(baseColor.r * 0.2 + 210))}, ${Math.min(255, Math.round(baseColor.g * 0.2 + 185))}, ${Math.min(255, Math.round(baseColor.b * 0.05 + 90))})`,
+      outerDark: `rgb(${Math.min(255, Math.round(baseColor.r * 0.15 + 140))}, ${Math.min(255, Math.round(baseColor.g * 0.12 + 110))}, ${Math.min(255, Math.round(baseColor.b * 0.03 + 30))})`,
+      outerMid: `rgb(${Math.min(255, Math.round(baseColor.r * 0.18 + 180))}, ${Math.min(255, Math.round(baseColor.g * 0.16 + 155))}, ${Math.min(255, Math.round(baseColor.b * 0.04 + 60))})`,
+      grooveColor: "rgba(100, 70, 10, 0.5)",
+      matColor: `rgb(${Math.min(255, Math.round(baseColor.r * 0.1 + 240))}, ${Math.min(255, Math.round(baseColor.g * 0.1 + 235))}, ${Math.min(255, Math.round(baseColor.b * 0.1 + 225))})`,
+      innerEdge: "rgba(220, 195, 100, 0.7)",
+      shadowColor: "rgba(80, 55, 10, 0.5)",
+    },
+    silver: {
+      outerLight: `rgb(${Math.min(255, Math.round(baseColor.r * 0.1 + 200))}, ${Math.min(255, Math.round(baseColor.g * 0.1 + 205))}, ${Math.min(255, Math.round(baseColor.b * 0.15 + 215))})`,
+      outerDark: `rgb(${Math.min(255, Math.round(baseColor.r * 0.08 + 130))}, ${Math.min(255, Math.round(baseColor.g * 0.08 + 135))}, ${Math.min(255, Math.round(baseColor.b * 0.12 + 145))})`,
+      outerMid: `rgb(${Math.min(255, Math.round(baseColor.r * 0.09 + 170))}, ${Math.min(255, Math.round(baseColor.g * 0.09 + 175))}, ${Math.min(255, Math.round(baseColor.b * 0.13 + 185))})`,
+      grooveColor: "rgba(60, 65, 75, 0.4)",
+      matColor: "rgb(248, 248, 252)",
+      innerEdge: "rgba(180, 185, 200, 0.5)",
+      shadowColor: "rgba(40, 45, 55, 0.4)",
+    },
+    white: {
+      outerLight: "rgb(252, 250, 248)",
+      outerDark: "rgb(215, 210, 205)",
+      outerMid: "rgb(238, 235, 230)",
+      grooveColor: "rgba(0, 0, 0, 0.15)",
+      matColor: "rgb(255, 255, 253)",
+      innerEdge: "rgba(200, 200, 200, 0.3)",
+      shadowColor: "rgba(0, 0, 0, 0.25)",
+    },
+  };
+
   return {
-    frame: "rgb(40, 30, 25)",
-    mat: "rgb(240, 235, 228)",
-    accent: "rgb(180, 155, 100)",
-    shadow: "rgba(0, 0, 0, 0.4)",
+    ...FRAME_STYLES[frameType],
+    frameType,
   };
 }
 
-// --- ImageCard with per-card color glow and dynamic frame ---
+// --- ImageCard with per-card color glow and realistic multi-layer frame ---
 function ImageCard({ image, index, theme, onClick, t, cardStyle }) {
   const [loaded, setLoaded] = useState(false);
   const [hovered, setHovered] = useState(false);
@@ -888,7 +935,7 @@ function ImageCard({ image, index, theme, onClick, t, cardStyle }) {
   const [error, setError] = useState(false);
 
   // Card style defaults
-  const cs = cardStyle || { borderRadius: 16, rotation: 0, scale: 1, paddingBottom: 0, marginTop: 0, marginLeft: 0, frameWidth: 12, frameInnerWidth: 3, frameBevel: true, frameGradientAngle: 145 };
+  const cs = cardStyle || { borderRadius: 16, rotation: 0, scale: 1, paddingBottom: 0, marginTop: 0, marginLeft: 0, frameWidth: 12, frameInnerWidth: 4, frameBevel: true, frameGradientAngle: 145 };
   const isMobile = typeof window !== "undefined" && window.innerWidth < 480;
   const effectiveRotation = isMobile ? 0 : cs.rotation;
 
@@ -901,83 +948,61 @@ function ImageCard({ image, index, theme, onClick, t, cardStyle }) {
     return theme.glow;
   })();
 
-  // Frame parameters (mobile: halve frame width)
-  const frameColors = generateFrameColors(image.color, theme);
-  const fw = isMobile ? Math.round((cs.frameWidth || 12) / 2) : (cs.frameWidth || 12);
-  const fiw = isMobile ? Math.max(1, Math.round((cs.frameInnerWidth || 3) / 2)) : (cs.frameInnerWidth || 3);
-  const hasBevel = cs.frameBevel !== false;
+  // Frame parameters (mobile: reduce frame width)
+  const frameStyle = generateFrameStyle(image.color, theme, index);
+  const fw = isMobile ? Math.max(5, Math.round((cs.frameWidth || 12) * 0.6)) : (cs.frameWidth || 12);
+  const fiw = isMobile ? Math.max(2, Math.round((cs.frameInnerWidth || 4) * 0.6)) : (cs.frameInnerWidth || 4);
   const gradAngle = cs.frameGradientAngle || 145;
 
-  // Shared frame wrapper style
-  const frameWrapperStyle = {
-    padding: fw,
-    background: `linear-gradient(${gradAngle}deg, ${frameColors.frame}, ${frameColors.accent} 20%, ${frameColors.frame} 40%, ${frameColors.accent} 60%, ${frameColors.frame} 80%, ${frameColors.accent})`,
-    borderRadius: (cs.borderRadius || 16) + 4,
-    boxShadow: hasBevel
-      ? `inset 2px 2px 4px rgba(255,255,255,0.15), inset -2px -2px 4px rgba(0,0,0,0.3), 4px 6px 20px ${frameColors.shadow}, ${hovered ? `0 8px 40px ${cardGlow}` : "0 2px 8px rgba(0,0,0,0.3)"}`
-      : `4px 6px 20px ${frameColors.shadow}, ${hovered ? `0 8px 40px ${cardGlow}` : "0 2px 8px rgba(0,0,0,0.3)"}`,
-    transform: hovered
-      ? `translateY(-4px) scale(${(cs.scale || 1) * 1.02}) rotate(0deg)`
-      : `translateY(0) rotate(${effectiveRotation}deg) scale(${cs.scale || 1})`,
-    transition: "all 0.4s cubic-bezier(0.23, 1, 0.32, 1)",
-    cursor: "pointer",
-  };
-
-  // Mat (inner white border) style
-  const matStyle = {
-    padding: fiw,
-    background: frameColors.mat,
-    borderRadius: cs.borderRadius || 16,
-  };
-
   if (error) {
-    const errorFrameColors = {
-      frame: "rgb(40, 30, 25)",
-      mat: "rgb(240, 235, 228)",
-      accent: "rgb(180, 155, 100)",
-      shadow: "rgba(0, 0, 0, 0.4)",
-    };
+    // Error card uses darkWood-style fallback frame
+    const errStyle = generateFrameStyle(null, theme, index);
     return (
       <div
         style={{
           padding: fw,
-          background: `linear-gradient(${gradAngle}deg, ${errorFrameColors.frame}, ${errorFrameColors.accent} 20%, ${errorFrameColors.frame} 40%, ${errorFrameColors.accent} 60%, ${errorFrameColors.frame} 80%, ${errorFrameColors.accent})`,
+          background: `linear-gradient(${gradAngle}deg, ${errStyle.outerDark} 0%, ${errStyle.outerLight} 15%, ${errStyle.outerMid} 30%, ${errStyle.outerLight} 45%, ${errStyle.outerDark} 55%, ${errStyle.outerMid} 70%, ${errStyle.outerLight} 85%, ${errStyle.outerDark} 100%)`,
           borderRadius: (cs.borderRadius || 16) + 4,
-          boxShadow: hasBevel
-            ? `inset 2px 2px 4px rgba(255,255,255,0.15), inset -2px -2px 4px rgba(0,0,0,0.3), 4px 6px 20px ${errorFrameColors.shadow}, 0 2px 8px rgba(0,0,0,0.3)`
-            : `4px 6px 20px ${errorFrameColors.shadow}, 0 2px 8px rgba(0,0,0,0.3)`,
+          boxShadow: `inset 1px 1px 2px rgba(255,255,255,0.25), inset -1px -1px 2px rgba(0,0,0,0.25), inset 3px 3px 6px rgba(255,255,255,0.1), inset -3px -3px 6px rgba(0,0,0,0.15), 3px 4px 12px ${errStyle.shadowColor}, 6px 8px 24px ${errStyle.shadowColor}`,
           animation: `fadeSlideUp 0.5s cubic-bezier(0.23, 1, 0.32, 1) ${index * 60}ms both`,
         }}
       >
-        <div style={{ padding: fiw, background: errorFrameColors.mat, borderRadius: cs.borderRadius || 16 }}>
-          <div
-            style={{
-              borderRadius: Math.max(0, (cs.borderRadius || 16) - 2),
-              overflow: "hidden",
-              background: "rgba(0, 0, 0, 0.25)",
-              backdropFilter: "blur(10px)",
-              WebkitBackdropFilter: "blur(10px)",
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              padding: "40px 16px",
-              paddingBottom: `${40 + (cs.paddingBottom || 0)}px`,
-              minHeight: 200,
-            }}
-          >
-            <div style={{ fontSize: 32, marginBottom: 12, opacity: 0.4 }}>🖼️</div>
-            <p
-              style={{
-                fontFamily: theme.bodyFont,
-                fontSize: 13,
-                color: theme.subtext,
-                opacity: 0.6,
-                textAlign: "center",
-              }}
-            >
-              {t.imageNotAvailable}
-            </p>
+        {/* Inner Groove */}
+        <div style={{ padding: 2, background: errStyle.grooveColor, borderRadius: (cs.borderRadius || 16) + 1 }}>
+          {/* Mat */}
+          <div style={{ padding: fiw, background: errStyle.matColor, borderRadius: cs.borderRadius || 16, boxShadow: "inset 1px 1px 3px rgba(0,0,0,0.08), inset -1px -1px 3px rgba(255,255,255,0.5)" }}>
+            {/* Inner Edge */}
+            <div style={{ padding: 1, background: errStyle.innerEdge, borderRadius: Math.max(0, (cs.borderRadius || 16) - 2) }}>
+              <div
+                style={{
+                  borderRadius: Math.max(0, (cs.borderRadius || 16) - 3),
+                  overflow: "hidden",
+                  background: "rgba(0, 0, 0, 0.25)",
+                  backdropFilter: "blur(10px)",
+                  WebkitBackdropFilter: "blur(10px)",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  padding: "40px 16px",
+                  paddingBottom: `${40 + (cs.paddingBottom || 0)}px`,
+                  minHeight: 200,
+                }}
+              >
+                <div style={{ fontSize: 32, marginBottom: 12, opacity: 0.4 }}>🖼️</div>
+                <p
+                  style={{
+                    fontFamily: theme.bodyFont,
+                    fontSize: 13,
+                    color: theme.subtext,
+                    opacity: 0.6,
+                    textAlign: "center",
+                  }}
+                >
+                  {t.imageNotAvailable}
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -985,9 +1010,18 @@ function ImageCard({ image, index, theme, onClick, t, cardStyle }) {
   }
 
   return (
+    /* Outer Frame — wood/metal texture via multi-stop gradient */
     <div
       style={{
-        ...frameWrapperStyle,
+        padding: fw,
+        background: `linear-gradient(${gradAngle}deg, ${frameStyle.outerDark} 0%, ${frameStyle.outerLight} 15%, ${frameStyle.outerMid} 30%, ${frameStyle.outerLight} 45%, ${frameStyle.outerDark} 55%, ${frameStyle.outerMid} 70%, ${frameStyle.outerLight} 85%, ${frameStyle.outerDark} 100%)`,
+        borderRadius: (cs.borderRadius || 16) + 4,
+        boxShadow: `inset 1px 1px 2px rgba(255,255,255,0.25), inset -1px -1px 2px rgba(0,0,0,0.25), inset 3px 3px 6px rgba(255,255,255,0.1), inset -3px -3px 6px rgba(0,0,0,0.15), 3px 4px 12px ${frameStyle.shadowColor}, 6px 8px 24px ${frameStyle.shadowColor}${hovered ? `, 0 10px 50px ${cardGlow}` : ""}`,
+        transform: hovered
+          ? `translateY(-6px) scale(${(cs.scale || 1) * 1.02}) rotate(0deg)`
+          : `translateY(0) rotate(${effectiveRotation}deg) scale(${cs.scale || 1})`,
+        transition: "all 0.4s cubic-bezier(0.23, 1, 0.32, 1)",
+        cursor: "pointer",
         animation: loaded ? `fadeSlideUp 0.5s cubic-bezier(0.23, 1, 0.32, 1) ${index * 60}ms both` : "none",
         opacity: loaded ? undefined : 0,
       }}
@@ -995,106 +1029,125 @@ function ImageCard({ image, index, theme, onClick, t, cardStyle }) {
       onMouseLeave={() => setHovered(false)}
       onClick={() => onClick(image)}
     >
-      {/* Mat (inner white border) */}
-      <div style={matStyle}>
-        {/* Image container */}
-        <div
-          style={{
+      {/* Inner Groove — recessed line inside the frame */}
+      <div style={{
+        padding: 2,
+        background: frameStyle.grooveColor,
+        borderRadius: (cs.borderRadius || 16) + 1,
+      }}>
+        {/* Mat — white/cream breathing space */}
+        <div style={{
+          padding: fiw,
+          background: frameStyle.matColor,
+          borderRadius: cs.borderRadius || 16,
+          boxShadow: "inset 1px 1px 3px rgba(0,0,0,0.08), inset -1px -1px 3px rgba(255,255,255,0.5)",
+        }}>
+          {/* Inner Edge — thin gold/silver accent line */}
+          <div style={{
+            padding: 1,
+            background: frameStyle.innerEdge,
             borderRadius: Math.max(0, (cs.borderRadius || 16) - 2),
-            overflow: "hidden",
-            position: "relative",
-          }}
-        >
-          <img
-            src={image.url}
-            alt={image.title}
-            onLoad={() => setLoaded(true)}
-            onError={() => setError(true)}
-            style={{
-              width: "100%",
-              display: "block",
-              maxHeight: isMobile ? "none" : 320,
-              objectFit: "cover",
-              filter: hovered ? "brightness(1.1)" : "brightness(1)",
-              transition: "filter 0.4s ease",
-            }}
-          />
-
-          {/* Hover overlay (title, source) */}
-          <div
-            style={{
-              position: "absolute",
-              bottom: 0,
-              left: 0,
-              right: 0,
-              padding: "40px 12px 12px",
-              background: "linear-gradient(transparent, rgba(0,0,0,0.8))",
-              opacity: hovered ? 1 : 0,
-              transition: "opacity 0.3s ease",
-            }}
-          >
-            <p
+          }}>
+            {/* Image container */}
+            <div
               style={{
-                fontSize: 13,
-                fontWeight: 600,
-                fontFamily: theme.bodyFont,
-                color: "#fff",
-                marginBottom: 2,
+                borderRadius: Math.max(0, (cs.borderRadius || 16) - 3),
                 overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
+                position: "relative",
               }}
             >
-              {image.title}
-            </p>
-            <p style={{ fontSize: 11, color: "rgba(255,255,255,0.7)", fontFamily: theme.bodyFont }}>
-              {image.source}
-            </p>
-          </div>
+              <img
+                src={image.url}
+                alt={image.title}
+                onLoad={() => setLoaded(true)}
+                onError={() => setError(true)}
+                style={{
+                  width: "100%",
+                  display: "block",
+                  maxHeight: isMobile ? "none" : 320,
+                  objectFit: "cover",
+                  filter: hovered ? "brightness(1.1)" : "brightness(1)",
+                  transition: "filter 0.4s ease",
+                }}
+              />
 
-          {/* Save button */}
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setSaved(!saved);
-            }}
-            style={{
-              position: "absolute",
-              top: 8,
-              right: 8,
-              padding: "4px 10px",
-              borderRadius: 8,
-              border: "none",
-              background: saved ? theme.primary : "rgba(0,0,0,0.5)",
-              color: "#fff",
-              fontSize: 11,
-              fontFamily: theme.bodyFont,
-              fontWeight: 600,
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 4,
-              opacity: hovered ? 1 : 0,
-              transition: "all 0.3s cubic-bezier(0.23, 1, 0.32, 1)",
-              backdropFilter: "blur(10px)",
-              letterSpacing: 0.3,
-            }}
-          >
-            <svg
-              width="12"
-              height="12"
-              viewBox="0 0 24 24"
-              fill={saved ? "currentColor" : "none"}
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
-            </svg>
-            {saved ? t.saved : t.save}
-          </button>
+              {/* Hover overlay (title, source) */}
+              <div
+                style={{
+                  position: "absolute",
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  padding: "40px 12px 12px",
+                  background: "linear-gradient(transparent, rgba(0,0,0,0.8))",
+                  opacity: hovered ? 1 : 0,
+                  transition: "opacity 0.3s ease",
+                }}
+              >
+                <p
+                  style={{
+                    fontSize: 13,
+                    fontWeight: 600,
+                    fontFamily: theme.bodyFont,
+                    color: "#fff",
+                    marginBottom: 2,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {image.title}
+                </p>
+                <p style={{ fontSize: 11, color: "rgba(255,255,255,0.7)", fontFamily: theme.bodyFont }}>
+                  {image.source}
+                </p>
+              </div>
+
+              {/* Save button */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSaved(!saved);
+                }}
+                style={{
+                  position: "absolute",
+                  top: 8,
+                  right: 8,
+                  padding: "4px 10px",
+                  borderRadius: 8,
+                  border: "none",
+                  background: saved ? theme.primary : "rgba(0,0,0,0.5)",
+                  color: "#fff",
+                  fontSize: 11,
+                  fontFamily: theme.bodyFont,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 4,
+                  opacity: hovered ? 1 : 0,
+                  transition: "all 0.3s cubic-bezier(0.23, 1, 0.32, 1)",
+                  backdropFilter: "blur(10px)",
+                  letterSpacing: 0.3,
+                }}
+              >
+                <svg
+                  width="12"
+                  height="12"
+                  viewBox="0 0 24 24"
+                  fill={saved ? "currentColor" : "none"}
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+                </svg>
+                {saved ? t.saved : t.save}
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -1474,7 +1527,7 @@ export default function Visushift() {
       marginLeft: 0,
       // Frame parameters
       frameWidth: randomInRange(8, 20, i + 100),
-      frameInnerWidth: randomInRange(2, 6, i + 200),
+      frameInnerWidth: randomInRange(3, 8, i + 200),
       frameBevel: randomInRange(0, 1, i + 300) > 0.5,
       frameGradientAngle: Math.round(randomInRange(120, 200, i + 400)),
     }));
