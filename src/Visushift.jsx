@@ -48,6 +48,47 @@ function detectFonts(query) {
   return DEFAULT_FONTS;
 }
 
+// --- Color temperature based font selection ---
+const TEMPERATURE_FONTS = {
+  warm: [
+    { font: "'Abril Fatface', serif", bodyFont: "'Lato', sans-serif" },
+    { font: "'Playfair Display', serif", bodyFont: "'Source Sans 3', sans-serif" },
+    { font: "'DM Serif Display', serif", bodyFont: "'Nunito', sans-serif" },
+  ],
+  cool: [
+    { font: "'Orbitron', sans-serif", bodyFont: "'Exo 2', sans-serif" },
+    { font: "'Cormorant Garamond', serif", bodyFont: "'Libre Franklin', sans-serif" },
+    { font: "'Bodoni Moda', serif", bodyFont: "'Karla', sans-serif" },
+  ],
+  neutral: [
+    { font: "'DM Serif Display', serif", bodyFont: "'Libre Franklin', sans-serif" },
+    { font: "'Sora', sans-serif", bodyFont: "'Outfit', sans-serif" },
+    { font: "'Bodoni Moda', serif", bodyFont: "'Karla', sans-serif" },
+  ],
+};
+
+function getColorTemperature(palette) {
+  const { accent } = palette;
+  const warmth = accent.r - accent.b;
+  if (warmth > 40) return "warm";
+  if (warmth < -40) return "cool";
+  return "neutral";
+}
+
+// --- Layout modes ---
+const LAYOUT_MODES = [
+  { name: "masonry", gap: 16 },
+  { name: "asymmetric", gap: 14 },
+  { name: "compact", gap: 10 },
+];
+
+// --- Random value in range with pseudo-random seed ---
+function randomInRange(min, max, index) {
+  const seed = Date.now() + index * 127;
+  const pseudo = Math.abs(Math.sin(seed)) * 10000;
+  return min + (pseudo % 1000) / 1000 * (max - min);
+}
+
 const SUGGEST_CHIPS = {
   en: ["Nature", "Space", "Ocean", "Food", "Architecture", "Art", "Mountains", "Flowers", "Cities", "Animals"],
   ja: ["自然", "宇宙", "海", "料理", "建築", "アート", "山", "花", "都市", "動物"],
@@ -398,7 +439,7 @@ function ImmersiveBackground({ bgImages, theme }) {
 }
 
 // --- Header ---
-function Header({ theme, query, onSearch, onReset, lang, onToggleLang, t }) {
+function Header({ theme, query, onSearch, onReset, lang, onToggleLang, t, layoutMode }) {
   const [input, setInput] = useState("");
   const [focused, setFocused] = useState(false);
   const inputRef = useRef(null);
@@ -554,6 +595,11 @@ function Header({ theme, query, onSearch, onReset, lang, onToggleLang, t }) {
             transition: "all 0.8s ease",
           }}
         />
+        {/* Layout mode indicator (uncomment for debugging)
+        <span style={{ fontSize: 10, color: theme.subtext, opacity: 0.5 }}>
+          {layoutMode.name}
+        </span>
+        */}
       </div>
     </header>
   );
@@ -709,11 +755,16 @@ function Landing({ theme, onSearch, history, lang, t }) {
 }
 
 // --- ImageCard with per-card color glow on hover ---
-function ImageCard({ image, index, theme, onClick, t }) {
+function ImageCard({ image, index, theme, onClick, t, cardStyle }) {
   const [loaded, setLoaded] = useState(false);
   const [hovered, setHovered] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState(false);
+
+  // Card style defaults
+  const cs = cardStyle || { borderRadius: 16, rotation: 0, scale: 1, paddingBottom: 0 };
+  const isMobile = typeof window !== "undefined" && window.innerWidth < 480;
+  const effectiveRotation = isMobile ? 0 : cs.rotation;
 
   // Determine per-card glow color from image.color (Unsplash HEX) or fallback
   const cardGlow = (() => {
@@ -728,7 +779,7 @@ function ImageCard({ image, index, theme, onClick, t }) {
     return (
       <div
         style={{
-          borderRadius: 16,
+          borderRadius: cs.borderRadius,
           overflow: "hidden",
           border: "1px solid rgba(255, 255, 255, 0.15)",
           background: "rgba(0, 0, 0, 0.25)",
@@ -739,6 +790,7 @@ function ImageCard({ image, index, theme, onClick, t }) {
           alignItems: "center",
           justifyContent: "center",
           padding: "40px 16px",
+          paddingBottom: `${40 + cs.paddingBottom}px`,
           minHeight: 200,
           animation: `fadeSlideUp 0.5s cubic-bezier(0.23, 1, 0.32, 1) ${index * 60}ms both`,
         }}
@@ -762,7 +814,7 @@ function ImageCard({ image, index, theme, onClick, t }) {
   return (
     <div
       style={{
-        borderRadius: 16,
+        borderRadius: cs.borderRadius,
         overflow: "hidden",
         border: `1px solid ${hovered ? "rgba(255, 255, 255, 0.3)" : "rgba(255, 255, 255, 0.15)"}`,
         background: "rgba(0, 0, 0, 0.25)",
@@ -771,10 +823,13 @@ function ImageCard({ image, index, theme, onClick, t }) {
         cursor: "pointer",
         position: "relative",
         transition: "all 0.4s cubic-bezier(0.23, 1, 0.32, 1)",
-        transform: hovered ? "translateY(-4px) scale(1.02)" : "translateY(0) scale(1)",
+        transform: hovered
+          ? `translateY(-4px) scale(${cs.scale * 1.02}) rotate(0deg)`
+          : `translateY(0) rotate(${effectiveRotation}deg) scale(${cs.scale})`,
         boxShadow: hovered ? `0 8px 40px ${cardGlow}` : "none",
         animation: loaded ? `fadeSlideUp 0.5s cubic-bezier(0.23, 1, 0.32, 1) ${index * 60}ms both` : "none",
         opacity: loaded ? undefined : 0,
+        paddingBottom: cs.paddingBottom,
       }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
@@ -871,27 +926,33 @@ function ImageCard({ image, index, theme, onClick, t }) {
 }
 
 // --- Responsive column count ---
-function useColumnCount() {
-  const [columns, setColumns] = useState(() => {
-    if (typeof window === "undefined") return 4;
-    const w = window.innerWidth;
+function useColumnCount(layoutModeName) {
+  const getColumnCount = useCallback((w) => {
+    if (layoutModeName === "compact") {
+      if (w >= 1200) return 5;
+      if (w >= 768) return 3;
+      if (w >= 480) return 2;
+      return 1;
+    }
     if (w >= 1200) return 4;
     if (w >= 768) return 3;
     if (w >= 480) return 2;
     return 1;
+  }, [layoutModeName]);
+
+  const [columns, setColumns] = useState(() => {
+    if (typeof window === "undefined") return 4;
+    return getColumnCount(window.innerWidth);
   });
 
   useEffect(() => {
     const handleResize = () => {
-      const w = window.innerWidth;
-      if (w >= 1200) setColumns(4);
-      else if (w >= 768) setColumns(3);
-      else if (w >= 480) setColumns(2);
-      else setColumns(1);
+      setColumns(getColumnCount(window.innerWidth));
     };
+    setColumns(getColumnCount(window.innerWidth));
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
-  }, []);
+  }, [getColumnCount]);
 
   return columns;
 }
@@ -942,18 +1003,29 @@ function SearchResultsHeader({ query, count, theme, t }) {
 }
 
 // --- Masonry grid ---
-function MasonryGrid({ images, theme, onImageClick, t }) {
-  const columnCount = useColumnCount();
+function MasonryGrid({ images, theme, onImageClick, t, layoutMode, cardStyles }) {
+  const columnCount = useColumnCount(layoutMode.name);
   const columns = Array.from({ length: columnCount }, () => []);
   images.forEach((img, i) => {
     columns[i % columnCount].push({ ...img, _index: i });
   });
 
+  // Flex ratios for asymmetric mode
+  const getFlexRatios = (count) => {
+    if (layoutMode.name !== "asymmetric") return Array(count).fill(1);
+    if (count >= 5) return [1.4, 1.1, 1, 0.9, 0.6];
+    if (count === 4) return [1.4, 1, 1, 0.6];
+    if (count === 3) return [1.3, 1, 0.7];
+    if (count === 2) return [1.2, 0.8];
+    return [1];
+  };
+  const flexRatios = getFlexRatios(columnCount);
+
   return (
     <div
       style={{
         display: "flex",
-        gap: 16,
+        gap: layoutMode.gap,
         padding: "16px 24px 60px",
         maxWidth: 1352,
         margin: "0 24px",
@@ -966,7 +1038,7 @@ function MasonryGrid({ images, theme, onImageClick, t }) {
       }}
     >
       {columns.map((col, ci) => (
-        <div key={ci} style={{ flex: 1, display: "flex", flexDirection: "column", gap: 16 }}>
+        <div key={ci} style={{ flex: flexRatios[ci], display: "flex", flexDirection: "column", gap: layoutMode.gap }}>
           {col.map((img) => (
             <ImageCard
               key={img.id}
@@ -975,6 +1047,7 @@ function MasonryGrid({ images, theme, onImageClick, t }) {
               theme={theme}
               onClick={onImageClick}
               t={t}
+              cardStyle={cardStyles[img._index] || null}
             />
           ))}
         </div>
@@ -1111,6 +1184,8 @@ export default function Visushift() {
   const [theme, setTheme] = useState(makeDefaultTheme);
   const [bgImages, setBgImages] = useState([]);
   const [lang, setLang] = useState("en");
+  const [cardStyles, setCardStyles] = useState([]);
+  const [layoutMode, setLayoutMode] = useState(LAYOUT_MODES[0]);
 
   const t = I18N[lang];
 
@@ -1130,6 +1205,10 @@ export default function Visushift() {
     // Apply fonts to current (default) theme immediately
     setTheme((prev) => ({ ...prev, font: fonts.font, bodyFont: fonts.bodyFont }));
 
+    // Select random layout mode
+    const randomLayout = LAYOUT_MODES[Math.floor(Math.random() * LAYOUT_MODES.length)];
+    setLayoutMode(randomLayout);
+
     setHistory((prev) => {
       const filtered = prev.filter((h) => h.toLowerCase() !== searchQuery.toLowerCase());
       return [searchQuery, ...filtered].slice(0, 8);
@@ -1137,6 +1216,15 @@ export default function Visushift() {
 
     const results = await fetchImages(searchQuery);
     setImages(results);
+
+    // Generate random card styles
+    const styles = results.map((_, i) => ({
+      borderRadius: randomInRange(8, 28, i),
+      rotation: randomInRange(-2, 2, i),
+      scale: randomInRange(0.97, 1.03, i),
+      paddingBottom: randomInRange(0, 8, i),
+    }));
+    setCardStyles(styles);
 
     // Set background images (first 6)
     const bgUrls = results.slice(0, 6).map((img) => img.url);
@@ -1146,7 +1234,16 @@ export default function Visushift() {
     try {
       const colors = await extractColorsFromImages(results, 5, searchQuery);
       const palette = generatePalette(colors);
-      const dynamicTheme = createDynamicTheme(palette, fonts);
+
+      // Temperature-based font selection
+      let finalFonts = fonts;
+      const temp = getColorTemperature(palette);
+      const tempFontOptions = TEMPERATURE_FONTS[temp];
+      if (fonts === DEFAULT_FONTS || Math.random() < 0.3) {
+        finalFonts = tempFontOptions[Math.floor(Math.random() * tempFontOptions.length)];
+      }
+
+      const dynamicTheme = createDynamicTheme(palette, finalFonts);
       setTheme(dynamicTheme);
     } catch {
       // If color extraction fails, keep default theme with fonts applied
@@ -1162,6 +1259,8 @@ export default function Visushift() {
     setSearched(false);
     setBgImages([]);
     setTheme(makeDefaultTheme());
+    setCardStyles([]);
+    setLayoutMode(LAYOUT_MODES[0]);
   }, []);
 
   const closeLightbox = useCallback(() => setLightboxImage(null), []);
@@ -1181,7 +1280,7 @@ export default function Visushift() {
     <>
       <GlobalStyles theme={theme} />
       <ImmersiveBackground bgImages={bgImages} theme={theme} />
-      <Header theme={theme} query={query} onSearch={handleSearch} onReset={handleReset} lang={lang} onToggleLang={handleToggleLang} t={t} />
+      <Header theme={theme} query={query} onSearch={handleSearch} onReset={handleReset} lang={lang} onToggleLang={handleToggleLang} t={t} layoutMode={layoutMode} />
 
       {!searched ? (
         <Landing theme={theme} onSearch={handleSearch} history={history} lang={lang} t={t} />
@@ -1190,7 +1289,7 @@ export default function Visushift() {
       ) : (
         <>
           <SearchResultsHeader query={query} count={images.length} theme={theme} t={t} />
-          <MasonryGrid images={images} theme={theme} onImageClick={setLightboxImage} t={t} />
+          <MasonryGrid images={images} theme={theme} onImageClick={setLightboxImage} t={t} layoutMode={layoutMode} cardStyles={cardStyles} />
         </>
       )}
 
