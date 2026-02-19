@@ -107,6 +107,41 @@ function extractColor(imageUrl) {
   });
 }
 
+// --- HSL to RGB conversion ---
+function hslToRgb(h, s, l) {
+  h /= 360;
+  let r, g, b;
+  if (s === 0) {
+    r = g = b = l;
+  } else {
+    const hue2rgb = (p, q, t) => {
+      if (t < 0) t += 1;
+      if (t > 1) t -= 1;
+      if (t < 1/6) return p + (q - p) * 6 * t;
+      if (t < 1/2) return q;
+      if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+      return p;
+    };
+    const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+    const p = 2 * l - q;
+    r = hue2rgb(p, q, h + 1/3);
+    g = hue2rgb(p, q, h);
+    b = hue2rgb(p, q, h - 1/3);
+  }
+  return { r: Math.round(r * 255), g: Math.round(g * 255), b: Math.round(b * 255) };
+}
+
+// --- Generate heuristic color from query (fallback for Picsum CORS) ---
+function generateColorFromQuery(query, index) {
+  let hash = 0;
+  const str = query + index;
+  for (let i = 0; i < str.length; i++) {
+    hash = str.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const hue = ((hash % 360) + 360) % 360;
+  return hslToRgb(hue, 0.65, 0.45);
+}
+
 // Parse HEX color string to {r, g, b}
 function hexToRgb(hex) {
   const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
@@ -216,15 +251,21 @@ async function fetchImages(query) {
   });
 }
 
-// --- Extract colors from images (use Unsplash color if available, else Canvas) ---
-async function extractColorsFromImages(images, count) {
+// --- Extract colors from images (use Unsplash color if available, else Canvas, else query hash) ---
+async function extractColorsFromImages(images, count, query) {
   const targets = images.slice(0, count);
-  const colorPromises = targets.map((img) => {
+  const colorPromises = targets.map((img, i) => {
     if (img.color) {
       const parsed = hexToRgb(img.color);
       if (parsed) return Promise.resolve(parsed);
     }
-    return extractColor(img.url);
+    return extractColor(img.url).then((color) => {
+      // Fallback value (30,30,60) means CORS failure — use query-based heuristic
+      if (color.r === 30 && color.g === 30 && color.b === 60) {
+        return generateColorFromQuery(query, i);
+      }
+      return color;
+    });
   });
   return Promise.all(colorPromises);
 }
@@ -274,7 +315,7 @@ function GlobalStyles({ theme }) {
         }
         @keyframes bgImageFadeIn {
           from { opacity: 0; }
-          to { opacity: 0.4; }
+          to { opacity: 0.6; }
         }
       `}</style>
     </>
@@ -308,11 +349,11 @@ function ImmersiveBackground({ bgImages, theme }) {
           crossOrigin="anonymous"
           style={{
             position: "absolute",
-            width: `${55 + (i % 3) * 8}vw`,
+            width: `${60 + (i % 3) * 10}vw`,
             height: "auto",
             top: positions[i % positions.length].top,
             left: positions[i % positions.length].left,
-            filter: "blur(60px) saturate(1.5) brightness(0.3)",
+            filter: "blur(50px) saturate(1.8) brightness(0.5)",
             opacity: 0,
             animation: `bgImageFadeIn 1.2s ease ${i * 0.15}s forwards, floatBlurImage ${17 + i * 2}s ease-in-out ${i * 1.2}s infinite`,
             objectFit: "cover",
@@ -327,8 +368,8 @@ function ImmersiveBackground({ bgImages, theme }) {
           position: "absolute",
           inset: 0,
           background: theme.bg,
-          opacity: 0.6,
-          mixBlendMode: "multiply",
+          opacity: 0.4,
+          mixBlendMode: "overlay",
           zIndex: 1,
           transition: "background 0.8s ease",
         }}
@@ -339,7 +380,7 @@ function ImmersiveBackground({ bgImages, theme }) {
         style={{
           position: "absolute",
           inset: 0,
-          background: "rgba(0, 0, 0, 0.3)",
+          background: "rgba(0, 0, 0, 0.2)",
           zIndex: 2,
         }}
       />
@@ -1075,21 +1116,23 @@ export default function Visushift() {
 
     const results = await fetchImages(searchQuery);
     setImages(results);
-    setLoading(false);
 
     // Set background images (first 6)
     const bgUrls = results.slice(0, 6).map((img) => img.url);
     setBgImages(bgUrls);
 
-    // Extract colors from first 5 images and generate dynamic theme
+    // Extract colors → apply theme BEFORE hiding loader
     try {
-      const colors = await extractColorsFromImages(results, 5);
+      const colors = await extractColorsFromImages(results, 5, searchQuery);
       const palette = generatePalette(colors);
       const dynamicTheme = createDynamicTheme(palette, fonts);
       setTheme(dynamicTheme);
     } catch {
       // If color extraction fails, keep default theme with fonts applied
     }
+
+    // Hide loader last so theme+background are already applied
+    setLoading(false);
   }, []);
 
   const handleReset = useCallback(() => {
