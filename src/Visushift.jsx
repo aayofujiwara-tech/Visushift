@@ -582,12 +582,13 @@ function Header({ theme, query, onSearch, onReset, lang, onToggleLang, t, layout
             fontFamily: theme.font,
             fontSize: 22,
             fontWeight: 700,
-            color: theme.text,
-            background: `linear-gradient(135deg, ${theme.text}, ${theme.accent})`,
+            color: "#fff",
+            background: "linear-gradient(135deg, #ffffff, rgba(255,255,255,0.7))",
             WebkitBackgroundClip: "text",
             WebkitTextFillColor: "transparent",
             backgroundClip: "text",
-            transition: "all 0.8s ease",
+            filter: `drop-shadow(0 0 8px ${theme.glow})`,
+            transition: "font-family 0.8s ease, filter 0.8s ease",
             letterSpacing: 0.5,
           }}
         >
