@@ -840,7 +840,47 @@ function Landing({ theme, onSearch, history, lang, t }) {
   );
 }
 
-// --- ImageCard with per-card color glow on hover ---
+// --- Generate frame colors from image color or theme ---
+function generateFrameColors(imageColor, theme) {
+  if (imageColor) {
+    const c = hexToRgb(imageColor);
+    if (c) {
+      // Frame body: darken image color
+      const frame = {
+        r: Math.max(0, Math.round(c.r * 0.35)),
+        g: Math.max(0, Math.round(c.g * 0.35)),
+        b: Math.max(0, Math.round(c.b * 0.35)),
+      };
+      // Mat: very light version (off-white tint)
+      const mat = {
+        r: Math.min(255, Math.round(c.r * 0.3 + 200)),
+        g: Math.min(255, Math.round(c.g * 0.3 + 195)),
+        b: Math.min(255, Math.round(c.b * 0.3 + 190)),
+      };
+      // Accent line: gold-ish tint
+      const accent = {
+        r: Math.min(255, Math.round(c.r * 0.5 + 140)),
+        g: Math.min(255, Math.round(c.g * 0.4 + 120)),
+        b: Math.min(255, Math.round(c.b * 0.2 + 60)),
+      };
+      return {
+        frame: `rgb(${frame.r}, ${frame.g}, ${frame.b})`,
+        mat: `rgb(${mat.r}, ${mat.g}, ${mat.b})`,
+        accent: `rgb(${accent.r}, ${accent.g}, ${accent.b})`,
+        shadow: `rgba(${frame.r}, ${frame.g}, ${frame.b}, 0.5)`,
+      };
+    }
+  }
+  // Fallback: theme-based
+  return {
+    frame: "rgb(40, 30, 25)",
+    mat: "rgb(240, 235, 228)",
+    accent: "rgb(180, 155, 100)",
+    shadow: "rgba(0, 0, 0, 0.4)",
+  };
+}
+
+// --- ImageCard with per-card color glow and dynamic frame ---
 function ImageCard({ image, index, theme, onClick, t, cardStyle }) {
   const [loaded, setLoaded] = useState(false);
   const [hovered, setHovered] = useState(false);
@@ -848,11 +888,9 @@ function ImageCard({ image, index, theme, onClick, t, cardStyle }) {
   const [error, setError] = useState(false);
 
   // Card style defaults
-  const cs = cardStyle || { borderRadius: 16, rotation: 0, scale: 1, paddingBottom: 0, marginTop: 0, marginLeft: 0 };
+  const cs = cardStyle || { borderRadius: 16, rotation: 0, scale: 1, paddingBottom: 0, marginTop: 0, marginLeft: 0, frameWidth: 12, frameInnerWidth: 3, frameBevel: true, frameGradientAngle: 145 };
   const isMobile = typeof window !== "undefined" && window.innerWidth < 480;
   const effectiveRotation = isMobile ? 0 : cs.rotation;
-  const effectiveMarginTop = isMobile ? 0 : (cs.marginTop || 0);
-  const effectiveMarginLeft = isMobile ? 0 : (cs.marginLeft || 0);
 
   // Determine per-card glow color from image.color (Unsplash HEX) or fallback
   const cardGlow = (() => {
@@ -863,40 +901,85 @@ function ImageCard({ image, index, theme, onClick, t, cardStyle }) {
     return theme.glow;
   })();
 
+  // Frame parameters (mobile: halve frame width)
+  const frameColors = generateFrameColors(image.color, theme);
+  const fw = isMobile ? Math.round((cs.frameWidth || 12) / 2) : (cs.frameWidth || 12);
+  const fiw = isMobile ? Math.max(1, Math.round((cs.frameInnerWidth || 3) / 2)) : (cs.frameInnerWidth || 3);
+  const hasBevel = cs.frameBevel !== false;
+  const gradAngle = cs.frameGradientAngle || 145;
+
+  // Shared frame wrapper style
+  const frameWrapperStyle = {
+    padding: fw,
+    background: `linear-gradient(${gradAngle}deg, ${frameColors.frame}, ${frameColors.accent} 20%, ${frameColors.frame} 40%, ${frameColors.accent} 60%, ${frameColors.frame} 80%, ${frameColors.accent})`,
+    borderRadius: (cs.borderRadius || 16) + 4,
+    boxShadow: hasBevel
+      ? `inset 2px 2px 4px rgba(255,255,255,0.15), inset -2px -2px 4px rgba(0,0,0,0.3), 4px 6px 20px ${frameColors.shadow}, ${hovered ? `0 8px 40px ${cardGlow}` : "0 2px 8px rgba(0,0,0,0.3)"}`
+      : `4px 6px 20px ${frameColors.shadow}, ${hovered ? `0 8px 40px ${cardGlow}` : "0 2px 8px rgba(0,0,0,0.3)"}`,
+    transform: hovered
+      ? `translateY(-4px) scale(${(cs.scale || 1) * 1.02}) rotate(0deg)`
+      : `translateY(0) rotate(${effectiveRotation}deg) scale(${cs.scale || 1})`,
+    transition: "all 0.4s cubic-bezier(0.23, 1, 0.32, 1)",
+    cursor: "pointer",
+  };
+
+  // Mat (inner white border) style
+  const matStyle = {
+    padding: fiw,
+    background: frameColors.mat,
+    borderRadius: cs.borderRadius || 16,
+  };
+
   if (error) {
+    const errorFrameColors = {
+      frame: "rgb(40, 30, 25)",
+      mat: "rgb(240, 235, 228)",
+      accent: "rgb(180, 155, 100)",
+      shadow: "rgba(0, 0, 0, 0.4)",
+    };
     return (
       <div
         style={{
-          borderRadius: cs.borderRadius,
-          overflow: "hidden",
-          border: "1px solid rgba(255, 255, 255, 0.15)",
-          background: "rgba(0, 0, 0, 0.25)",
-          backdropFilter: "blur(10px)",
-          WebkitBackdropFilter: "blur(10px)",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          padding: "40px 16px",
-          paddingBottom: `${40 + cs.paddingBottom}px`,
-          minHeight: 200,
+          padding: fw,
+          background: `linear-gradient(${gradAngle}deg, ${errorFrameColors.frame}, ${errorFrameColors.accent} 20%, ${errorFrameColors.frame} 40%, ${errorFrameColors.accent} 60%, ${errorFrameColors.frame} 80%, ${errorFrameColors.accent})`,
+          borderRadius: (cs.borderRadius || 16) + 4,
+          boxShadow: hasBevel
+            ? `inset 2px 2px 4px rgba(255,255,255,0.15), inset -2px -2px 4px rgba(0,0,0,0.3), 4px 6px 20px ${errorFrameColors.shadow}, 0 2px 8px rgba(0,0,0,0.3)`
+            : `4px 6px 20px ${errorFrameColors.shadow}, 0 2px 8px rgba(0,0,0,0.3)`,
           animation: `fadeSlideUp 0.5s cubic-bezier(0.23, 1, 0.32, 1) ${index * 60}ms both`,
-          marginTop: effectiveMarginTop,
-          marginLeft: effectiveMarginLeft,
         }}
       >
-        <div style={{ fontSize: 32, marginBottom: 12, opacity: 0.4 }}>🖼️</div>
-        <p
-          style={{
-            fontFamily: theme.bodyFont,
-            fontSize: 13,
-            color: theme.subtext,
-            opacity: 0.6,
-            textAlign: "center",
-          }}
-        >
-          {t.imageNotAvailable}
-        </p>
+        <div style={{ padding: fiw, background: errorFrameColors.mat, borderRadius: cs.borderRadius || 16 }}>
+          <div
+            style={{
+              borderRadius: Math.max(0, (cs.borderRadius || 16) - 2),
+              overflow: "hidden",
+              background: "rgba(0, 0, 0, 0.25)",
+              backdropFilter: "blur(10px)",
+              WebkitBackdropFilter: "blur(10px)",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "40px 16px",
+              paddingBottom: `${40 + (cs.paddingBottom || 0)}px`,
+              minHeight: 200,
+            }}
+          >
+            <div style={{ fontSize: 32, marginBottom: 12, opacity: 0.4 }}>🖼️</div>
+            <p
+              style={{
+                fontFamily: theme.bodyFont,
+                fontSize: 13,
+                color: theme.subtext,
+                opacity: 0.6,
+                textAlign: "center",
+              }}
+            >
+              {t.imageNotAvailable}
+            </p>
+          </div>
+        </div>
       </div>
     );
   }
@@ -904,117 +987,116 @@ function ImageCard({ image, index, theme, onClick, t, cardStyle }) {
   return (
     <div
       style={{
-        borderRadius: cs.borderRadius,
-        overflow: "hidden",
-        border: `1px solid ${hovered ? "rgba(255, 255, 255, 0.3)" : "rgba(255, 255, 255, 0.15)"}`,
-        background: "rgba(0, 0, 0, 0.25)",
-        backdropFilter: "blur(10px)",
-        WebkitBackdropFilter: "blur(10px)",
-        cursor: "pointer",
-        position: "relative",
-        transition: "all 0.4s cubic-bezier(0.23, 1, 0.32, 1)",
-        transform: hovered
-          ? `translateY(-4px) scale(${cs.scale * 1.02}) rotate(0deg)`
-          : `translateY(0) rotate(${effectiveRotation}deg) scale(${cs.scale})`,
-        boxShadow: hovered ? `0 8px 40px ${cardGlow}` : "none",
+        ...frameWrapperStyle,
         animation: loaded ? `fadeSlideUp 0.5s cubic-bezier(0.23, 1, 0.32, 1) ${index * 60}ms both` : "none",
         opacity: loaded ? undefined : 0,
-        paddingBottom: cs.paddingBottom,
-        marginTop: effectiveMarginTop,
-        marginLeft: effectiveMarginLeft,
       }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       onClick={() => onClick(image)}
     >
-      <img
-        src={image.url}
-        alt={image.title}
-        onLoad={() => setLoaded(true)}
-        onError={() => setError(true)}
-        style={{
-          width: "100%",
-          display: "block",
-          maxHeight: isMobile ? "none" : 320,
-          objectFit: "cover",
-          filter: hovered ? "brightness(1.1)" : "brightness(1)",
-          transition: "filter 0.4s ease",
-        }}
-      />
-
-      <div
-        style={{
-          position: "absolute",
-          bottom: 0,
-          left: 0,
-          right: 0,
-          padding: "40px 12px 12px",
-          background: "linear-gradient(transparent, rgba(0,0,0,0.8))",
-          opacity: hovered ? 1 : 0,
-          transition: "opacity 0.3s ease",
-        }}
-      >
-        <p
+      {/* Mat (inner white border) */}
+      <div style={matStyle}>
+        {/* Image container */}
+        <div
           style={{
-            fontSize: 13,
-            fontWeight: 600,
-            fontFamily: theme.bodyFont,
-            color: "#fff",
-            marginBottom: 2,
+            borderRadius: Math.max(0, (cs.borderRadius || 16) - 2),
             overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
+            position: "relative",
           }}
         >
-          {image.title}
-        </p>
-        <p style={{ fontSize: 11, color: "rgba(255,255,255,0.7)", fontFamily: theme.bodyFont }}>
-          {image.source}
-        </p>
-      </div>
+          <img
+            src={image.url}
+            alt={image.title}
+            onLoad={() => setLoaded(true)}
+            onError={() => setError(true)}
+            style={{
+              width: "100%",
+              display: "block",
+              maxHeight: isMobile ? "none" : 320,
+              objectFit: "cover",
+              filter: hovered ? "brightness(1.1)" : "brightness(1)",
+              transition: "filter 0.4s ease",
+            }}
+          />
 
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          setSaved(!saved);
-        }}
-        style={{
-          position: "absolute",
-          top: 8,
-          right: 8,
-          padding: "4px 10px",
-          borderRadius: 8,
-          border: "none",
-          background: saved ? theme.primary : "rgba(0,0,0,0.5)",
-          color: "#fff",
-          fontSize: 11,
-          fontFamily: theme.bodyFont,
-          fontWeight: 600,
-          cursor: "pointer",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 4,
-          opacity: hovered ? 1 : 0,
-          transition: "all 0.3s cubic-bezier(0.23, 1, 0.32, 1)",
-          backdropFilter: "blur(10px)",
-          letterSpacing: 0.3,
-        }}
-      >
-        <svg
-          width="12"
-          height="12"
-          viewBox="0 0 24 24"
-          fill={saved ? "currentColor" : "none"}
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
-        </svg>
-        {saved ? t.saved : t.save}
-      </button>
+          {/* Hover overlay (title, source) */}
+          <div
+            style={{
+              position: "absolute",
+              bottom: 0,
+              left: 0,
+              right: 0,
+              padding: "40px 12px 12px",
+              background: "linear-gradient(transparent, rgba(0,0,0,0.8))",
+              opacity: hovered ? 1 : 0,
+              transition: "opacity 0.3s ease",
+            }}
+          >
+            <p
+              style={{
+                fontSize: 13,
+                fontWeight: 600,
+                fontFamily: theme.bodyFont,
+                color: "#fff",
+                marginBottom: 2,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {image.title}
+            </p>
+            <p style={{ fontSize: 11, color: "rgba(255,255,255,0.7)", fontFamily: theme.bodyFont }}>
+              {image.source}
+            </p>
+          </div>
+
+          {/* Save button */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setSaved(!saved);
+            }}
+            style={{
+              position: "absolute",
+              top: 8,
+              right: 8,
+              padding: "4px 10px",
+              borderRadius: 8,
+              border: "none",
+              background: saved ? theme.primary : "rgba(0,0,0,0.5)",
+              color: "#fff",
+              fontSize: 11,
+              fontFamily: theme.bodyFont,
+              fontWeight: 600,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 4,
+              opacity: hovered ? 1 : 0,
+              transition: "all 0.3s cubic-bezier(0.23, 1, 0.32, 1)",
+              backdropFilter: "blur(10px)",
+              letterSpacing: 0.3,
+            }}
+          >
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill={saved ? "currentColor" : "none"}
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+            </svg>
+            {saved ? t.saved : t.save}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -1385,6 +1467,11 @@ export default function Visushift() {
       paddingBottom: randomInRange(0, 8, i),
       marginTop: 0,
       marginLeft: 0,
+      // Frame parameters
+      frameWidth: randomInRange(8, 20, i + 100),
+      frameInnerWidth: randomInRange(2, 6, i + 200),
+      frameBevel: randomInRange(0, 1, i + 300) > 0.5,
+      frameGradientAngle: Math.round(randomInRange(120, 200, i + 400)),
     }));
     setCardStyles(styles);
 
