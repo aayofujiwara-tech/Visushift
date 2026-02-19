@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 
 const UNSPLASH_ACCESS_KEY = import.meta.env.VITE_UNSPLASH_ACCESS_KEY || "";
+const PIXABAY_API_KEY = import.meta.env.VITE_PIXABAY_API_KEY || "";
 
 const I18N = {
   en: {
@@ -345,9 +346,51 @@ function createDynamicTheme(palette, fonts) {
   };
 }
 
-// --- Image fetching ---
-async function fetchImages(query) {
-  if (UNSPLASH_ACCESS_KEY) {
+// --- Pixabay image fetching ---
+async function fetchPixabayImages(query) {
+  if (!PIXABAY_API_KEY) return null;
+
+  try {
+    const randomPage = Math.floor(Math.random() * 3) + 1;
+    const langParam = containsJapanese(query) ? "&lang=ja" : "";
+    const res = await fetch(
+      `https://pixabay.com/api/?key=${PIXABAY_API_KEY}&q=${encodeURIComponent(query)}&per_page=20&page=${randomPage}&image_type=photo&safesearch=true${langParam}`
+    );
+    if (!res.ok) throw new Error("Pixabay API error");
+    const data = await res.json();
+
+    if (!data.hits || data.hits.length === 0) return null;
+
+    // Fisher-Yates shuffle
+    const shuffled = [...data.hits];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+
+    return shuffled.map((hit) => ({
+      id: `pixabay-${hit.id}`,
+      url: hit.largeImageURL || hit.webformatURL,
+      title: hit.tags || query,
+      source: `${hit.user} (Pixabay)`,
+      color: null,
+    }));
+  } catch {
+    return null;
+  }
+}
+
+// --- Image fetching (source-aware) ---
+async function fetchImages(query, source) {
+  // Pixabay mode
+  if (source === "pixabay") {
+    const pixabayResults = await fetchPixabayImages(query);
+    if (pixabayResults) return pixabayResults;
+    // Pixabay failure: fall through to Picsum
+  }
+
+  // Unsplash mode
+  if (source === "unsplash" && UNSPLASH_ACCESS_KEY) {
     try {
       const randomPage = Math.floor(Math.random() * 5) + 1;
       const res = await fetch(
@@ -372,6 +415,8 @@ async function fetchImages(query) {
       // fall through to Picsum
     }
   }
+
+  // Picsum fallback
   const timestamp = Date.now();
   return Array.from({ length: 20 }, (_, i) => {
     const w = 400 + (i % 3) * 100;
@@ -525,7 +570,7 @@ function ImmersiveBackground({ bgImages, theme }) {
 }
 
 // --- Header ---
-function Header({ theme, query, onSearch, onReset, lang, onToggleLang, t, layoutMode }) {
+function Header({ theme, query, onSearch, onReset, lang, onToggleLang, t, layoutMode, imageSource, onToggleSource }) {
   const [input, setInput] = useState("");
   const [focused, setFocused] = useState(false);
   const inputRef = useRef(null);
@@ -674,6 +719,38 @@ function Header({ theme, query, onSearch, onReset, lang, onToggleLang, t, layout
           }}
         >
           {lang === "en" ? "日本語" : "EN"}
+        </button>
+        <button
+          type="button"
+          onClick={onToggleSource}
+          style={{
+            padding: "6px 12px",
+            borderRadius: 8,
+            border: `1px solid ${theme.border}`,
+            background: "rgba(255,255,255,0.07)",
+            color: theme.subtext,
+            fontSize: 11,
+            fontWeight: 600,
+            cursor: "pointer",
+            transition: "all 0.3s cubic-bezier(0.23, 1, 0.32, 1)",
+            display: "flex",
+            alignItems: "center",
+            gap: 4,
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.borderColor = theme.accent;
+            e.currentTarget.style.color = theme.text;
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.borderColor = theme.border;
+            e.currentTarget.style.color = theme.subtext;
+          }}
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+            <circle cx="12" cy="13" r="4" />
+          </svg>
+          {imageSource === "unsplash" ? "Unsplash" : "Pixabay"}
         </button>
         <div
           style={{
@@ -1464,11 +1541,20 @@ export default function Visushift() {
   const [lang, setLang] = useState("en");
   const [cardStyles, setCardStyles] = useState([]);
   const [layoutMode, setLayoutMode] = useState(LAYOUT_MODES[0]);
+  const [imageSource, setImageSource] = useState(() => {
+    if (PIXABAY_API_KEY) return "pixabay";
+    if (UNSPLASH_ACCESS_KEY) return "unsplash";
+    return "unsplash";
+  });
 
   const t = I18N[lang];
 
   const handleToggleLang = useCallback(() => {
     setLang((prev) => (prev === "en" ? "ja" : "en"));
+  }, []);
+
+  const handleToggleSource = useCallback(() => {
+    setImageSource((prev) => prev === "unsplash" ? "pixabay" : "unsplash");
   }, []);
 
   const handleSearch = useCallback(async (searchQuery, skipPushState = false) => {
@@ -1503,19 +1589,22 @@ export default function Visushift() {
       return [searchQuery, ...filtered].slice(0, 8);
     });
 
-    // Translate Japanese to English for image search
+    // Translate Japanese to English only for Unsplash mode
+    // Pixabay supports Japanese queries natively
     let searchTerm = searchQuery;
-    if (containsJapanese(searchQuery)) {
+    if (imageSource === "unsplash" && containsJapanese(searchQuery)) {
       searchTerm = await translateToEnglish(searchQuery);
     }
 
     // Re-detect fonts using translated query (English patterns may match)
-    const fontsFromTranslated = detectFonts(searchTerm);
-    if (fontsFromTranslated !== DEFAULT_FONTS) {
-      setTheme((prev) => ({ ...prev, font: fontsFromTranslated.font, bodyFont: fontsFromTranslated.bodyFont }));
+    if (searchTerm !== searchQuery) {
+      const fontsFromTranslated = detectFonts(searchTerm);
+      if (fontsFromTranslated !== DEFAULT_FONTS) {
+        setTheme((prev) => ({ ...prev, font: fontsFromTranslated.font, bodyFont: fontsFromTranslated.bodyFont }));
+      }
     }
 
-    const results = await fetchImages(searchTerm);
+    const results = await fetchImages(searchTerm, imageSource);
     setImages(results);
 
     // Generate random card styles
@@ -1559,7 +1648,7 @@ export default function Visushift() {
 
     // Hide loader last so theme+background are already applied
     setLoading(false);
-  }, []);
+  }, [imageSource]);
 
   const handleReset = useCallback((skipPushState = false) => {
     setQuery("");
@@ -1619,7 +1708,7 @@ export default function Visushift() {
     <>
       <GlobalStyles theme={theme} />
       <ImmersiveBackground bgImages={bgImages} theme={theme} />
-      <Header theme={theme} query={query} onSearch={handleSearch} onReset={handleReset} lang={lang} onToggleLang={handleToggleLang} t={t} layoutMode={layoutMode} />
+      <Header theme={theme} query={query} onSearch={handleSearch} onReset={handleReset} lang={lang} onToggleLang={handleToggleLang} t={t} layoutMode={layoutMode} imageSource={imageSource} onToggleSource={handleToggleSource} />
 
       {!searched ? (
         <Landing theme={theme} onSearch={handleSearch} history={history} lang={lang} t={t} />
