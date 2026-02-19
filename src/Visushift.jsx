@@ -79,13 +79,27 @@ function getColorTemperature(palette) {
 const LAYOUT_MODES = [
   { name: "masonry", gap: 16 },
   { name: "asymmetric", gap: 14 },
-  { name: "compact", gap: 10 },
+  { name: "compact", gap: 6 },
 ];
 
-// --- Random value in range with pseudo-random seed ---
+// --- Asymmetric flex ratio patterns ---
+const ASYMMETRIC_RATIOS = {
+  5: [[1.6, 1.1, 1, 0.8, 0.5], [0.5, 0.8, 1, 1.1, 1.6], [1.3, 0.7, 1.2, 0.8, 1]],
+  4: [[1.6, 1, 0.9, 0.5], [0.5, 0.9, 1, 1.6], [1.3, 0.7, 1.3, 0.7]],
+  3: [[1.5, 1, 0.5], [0.5, 1, 1.5], [1.2, 0.6, 1.2]],
+  2: [[1.4, 0.6], [0.6, 1.4]],
+  1: [[1]],
+};
+
+// --- Random value in range with improved pseudo-random seed ---
+let _globalSeed = Date.now();
+function resetRandomSeed() {
+  _globalSeed = Date.now();
+}
+
 function randomInRange(min, max, index) {
-  const seed = Date.now() + index * 127;
-  const pseudo = Math.abs(Math.sin(seed)) * 10000;
+  const seed = _globalSeed * (index + 1) + index * 7919;
+  const pseudo = Math.abs(Math.sin(seed * 0.0001) * Math.cos(seed * 0.00013)) * 10000;
   return min + (pseudo % 1000) / 1000 * (max - min);
 }
 
@@ -762,9 +776,11 @@ function ImageCard({ image, index, theme, onClick, t, cardStyle }) {
   const [error, setError] = useState(false);
 
   // Card style defaults
-  const cs = cardStyle || { borderRadius: 16, rotation: 0, scale: 1, paddingBottom: 0 };
+  const cs = cardStyle || { borderRadius: 16, rotation: 0, scale: 1, paddingBottom: 0, marginTop: 0, marginLeft: 0 };
   const isMobile = typeof window !== "undefined" && window.innerWidth < 480;
   const effectiveRotation = isMobile ? 0 : cs.rotation;
+  const effectiveMarginTop = isMobile ? 0 : (cs.marginTop || 0);
+  const effectiveMarginLeft = isMobile ? 0 : (cs.marginLeft || 0);
 
   // Determine per-card glow color from image.color (Unsplash HEX) or fallback
   const cardGlow = (() => {
@@ -793,6 +809,8 @@ function ImageCard({ image, index, theme, onClick, t, cardStyle }) {
           paddingBottom: `${40 + cs.paddingBottom}px`,
           minHeight: 200,
           animation: `fadeSlideUp 0.5s cubic-bezier(0.23, 1, 0.32, 1) ${index * 60}ms both`,
+          marginTop: effectiveMarginTop,
+          marginLeft: effectiveMarginLeft,
         }}
       >
         <div style={{ fontSize: 32, marginBottom: 12, opacity: 0.4 }}>🖼️</div>
@@ -830,6 +848,8 @@ function ImageCard({ image, index, theme, onClick, t, cardStyle }) {
         animation: loaded ? `fadeSlideUp 0.5s cubic-bezier(0.23, 1, 0.32, 1) ${index * 60}ms both` : "none",
         opacity: loaded ? undefined : 0,
         paddingBottom: cs.paddingBottom,
+        marginTop: effectiveMarginTop,
+        marginLeft: effectiveMarginLeft,
       }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
@@ -965,9 +985,9 @@ function SearchResultsHeader({ query, count, theme, t }) {
         display: "flex",
         justifyContent: "space-between",
         alignItems: "baseline",
-        padding: "16px 24px",
-        maxWidth: 1352,
-        margin: "24px 24px 8px",
+        padding: "16px 32px",
+        maxWidth: "100%",
+        margin: "24px 32px 8px",
         position: "relative",
         zIndex: 1,
         background: "rgba(0, 0, 0, 0.3)",
@@ -1013,11 +1033,9 @@ function MasonryGrid({ images, theme, onImageClick, t, layoutMode, cardStyles })
   // Flex ratios for asymmetric mode
   const getFlexRatios = (count) => {
     if (layoutMode.name !== "asymmetric") return Array(count).fill(1);
-    if (count >= 5) return [1.4, 1.1, 1, 0.9, 0.6];
-    if (count === 4) return [1.4, 1, 1, 0.6];
-    if (count === 3) return [1.3, 1, 0.7];
-    if (count === 2) return [1.2, 0.8];
-    return [1];
+    const options = ASYMMETRIC_RATIOS[count] || [[1]];
+    const idx = (layoutMode.flexPatternIndex || 0) % options.length;
+    return options[idx];
   };
   const flexRatios = getFlexRatios(columnCount);
 
@@ -1026,9 +1044,9 @@ function MasonryGrid({ images, theme, onImageClick, t, layoutMode, cardStyles })
       style={{
         display: "flex",
         gap: layoutMode.gap,
-        padding: "16px 24px 60px",
-        maxWidth: 1352,
-        margin: "0 24px",
+        padding: "16px 32px 60px",
+        maxWidth: "100%",
+        margin: 0,
         position: "relative",
         zIndex: 1,
         background: "rgba(0, 0, 0, 0.1)",
@@ -1200,13 +1218,19 @@ export default function Visushift() {
     setImages([]);
     setBgImages([]);
 
+    // Reset random seed for this search
+    resetRandomSeed();
+
     // Detect fonts immediately from query
     const fonts = detectFonts(searchQuery);
     // Apply fonts to current (default) theme immediately
     setTheme((prev) => ({ ...prev, font: fonts.font, bodyFont: fonts.bodyFont }));
 
     // Select random layout mode
-    const randomLayout = LAYOUT_MODES[Math.floor(Math.random() * LAYOUT_MODES.length)];
+    const randomLayout = { ...LAYOUT_MODES[Math.floor(Math.random() * LAYOUT_MODES.length)] };
+    if (randomLayout.name === "asymmetric") {
+      randomLayout.flexPatternIndex = Math.floor(Math.random() * 3);
+    }
     setLayoutMode(randomLayout);
 
     setHistory((prev) => {
@@ -1219,10 +1243,12 @@ export default function Visushift() {
 
     // Generate random card styles
     const styles = results.map((_, i) => ({
-      borderRadius: randomInRange(8, 28, i),
-      rotation: randomInRange(-2, 2, i),
-      scale: randomInRange(0.97, 1.03, i),
-      paddingBottom: randomInRange(0, 8, i),
+      borderRadius: randomInRange(6, 32, i),
+      rotation: randomInRange(-3.5, 3.5, i),
+      scale: randomInRange(0.94, 1.06, i),
+      paddingBottom: randomInRange(0, 16, i),
+      marginTop: randomInRange(-8, 8, i),
+      marginLeft: randomInRange(-4, 4, i),
     }));
     setCardStyles(styles);
 
