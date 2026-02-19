@@ -211,8 +211,8 @@ function createDynamicTheme(palette, fonts) {
     cardBg: `rgba(${primary.r}, ${primary.g}, ${primary.b}, 0.15)`,
     border: `rgba(${accent.r}, ${accent.g}, ${accent.b}, 0.25)`,
     glow: `rgba(${accent.r}, ${accent.g}, ${accent.b}, 0.4)`,
-    text: `rgb(${clamp(accent.r * 0.5 + 170)}, ${clamp(accent.g * 0.5 + 160)}, ${clamp(accent.b * 0.5 + 170)})`,
-    subtext: `rgb(${clamp(accent.r * 0.8 + 60)}, ${clamp(accent.g * 0.8 + 50)}, ${clamp(accent.b * 0.8 + 60)})`,
+    text: `rgb(${clamp(accent.r * 0.3 + 200)}, ${clamp(accent.g * 0.3 + 195)}, ${clamp(accent.b * 0.3 + 200)})`,
+    subtext: `rgb(${clamp(accent.r * 0.5 + 140)}, ${clamp(accent.g * 0.5 + 135)}, ${clamp(accent.b * 0.5 + 140)})`,
     font: fonts.font,
     bodyFont: fonts.bodyFont,
   };
@@ -353,7 +353,7 @@ function ImmersiveBackground({ bgImages, theme }) {
             height: "auto",
             top: positions[i % positions.length].top,
             left: positions[i % positions.length].left,
-            filter: "blur(50px) saturate(1.8) brightness(0.5)",
+            filter: "blur(40px) saturate(2.5) brightness(0.6) contrast(1.2)",
             opacity: 0,
             animation: `bgImageFadeIn 1.2s ease ${i * 0.15}s forwards, floatBlurImage ${17 + i * 2}s ease-in-out ${i * 1.2}s infinite`,
             objectFit: "cover",
@@ -368,8 +368,8 @@ function ImmersiveBackground({ bgImages, theme }) {
           position: "absolute",
           inset: 0,
           background: theme.bg,
-          opacity: 0.4,
-          mixBlendMode: "overlay",
+          opacity: 0.3,
+          mixBlendMode: "soft-light",
           zIndex: 1,
           transition: "background 0.8s ease",
         }}
@@ -380,7 +380,7 @@ function ImmersiveBackground({ bgImages, theme }) {
         style={{
           position: "absolute",
           inset: 0,
-          background: "rgba(0, 0, 0, 0.2)",
+          background: "rgba(0, 0, 0, 0.15)",
           zIndex: 2,
         }}
       />
@@ -420,7 +420,7 @@ function Header({ theme, query, onSearch, onReset, lang, onToggleLang, t }) {
         zIndex: 100,
         backdropFilter: "blur(30px)",
         WebkitBackdropFilter: "blur(30px)",
-        background: "rgba(0,0,0,0.4)",
+        background: "rgba(0,0,0,0.55)",
         borderBottom: `1px solid ${theme.border}`,
         padding: "12px 24px",
         display: "flex",
@@ -721,8 +721,10 @@ function ImageCard({ image, index, theme, onClick, t }) {
         style={{
           borderRadius: 16,
           overflow: "hidden",
-          border: `1px solid ${theme.border}`,
-          background: theme.cardBg,
+          border: "1px solid rgba(255, 255, 255, 0.15)",
+          background: "rgba(0, 0, 0, 0.25)",
+          backdropFilter: "blur(10px)",
+          WebkitBackdropFilter: "blur(10px)",
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
@@ -753,8 +755,10 @@ function ImageCard({ image, index, theme, onClick, t }) {
       style={{
         borderRadius: 16,
         overflow: "hidden",
-        border: `1px solid ${theme.border}`,
-        background: theme.cardBg,
+        border: `1px solid ${hovered ? "rgba(255, 255, 255, 0.3)" : "rgba(255, 255, 255, 0.15)"}`,
+        background: "rgba(0, 0, 0, 0.25)",
+        backdropFilter: "blur(10px)",
+        WebkitBackdropFilter: "blur(10px)",
         cursor: "pointer",
         position: "relative",
         transition: "all 0.4s cubic-bezier(0.23, 1, 0.32, 1)",
@@ -891,11 +895,15 @@ function SearchResultsHeader({ query, count, theme, t }) {
         display: "flex",
         justifyContent: "space-between",
         alignItems: "baseline",
-        padding: "24px 24px 8px",
-        maxWidth: 1400,
-        margin: "0 auto",
+        padding: "16px 24px",
+        maxWidth: 1352,
+        margin: "24px 24px 8px",
         position: "relative",
         zIndex: 1,
+        background: "rgba(0, 0, 0, 0.3)",
+        backdropFilter: "blur(10px)",
+        WebkitBackdropFilter: "blur(10px)",
+        borderRadius: 12,
       }}
     >
       <h2
@@ -937,11 +945,15 @@ function MasonryGrid({ images, theme, onImageClick, t }) {
       style={{
         display: "flex",
         gap: 16,
-        padding: "0 24px 60px",
-        maxWidth: 1400,
-        margin: "0 auto",
+        padding: "16px 24px 60px",
+        maxWidth: 1352,
+        margin: "0 24px",
         position: "relative",
         zIndex: 1,
+        background: "rgba(0, 0, 0, 0.1)",
+        borderRadius: 16,
+        backdropFilter: "blur(5px)",
+        WebkitBackdropFilter: "blur(5px)",
       }}
     >
       {columns.map((col, ci) => (
