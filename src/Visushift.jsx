@@ -567,7 +567,7 @@ function Header({ theme, query, onSearch, onReset, lang, onToggleLang, t, layout
       }}
     >
       <div
-        onClick={onReset}
+        onClick={() => onReset()}
         style={{
           cursor: "pointer",
           display: "flex",
@@ -1417,12 +1417,17 @@ export default function Visushift() {
     setLang((prev) => (prev === "en" ? "ja" : "en"));
   }, []);
 
-  const handleSearch = useCallback(async (searchQuery) => {
+  const handleSearch = useCallback(async (searchQuery, skipPushState = false) => {
     setQuery(searchQuery);
     setSearched(true);
     setLoading(true);
     setImages([]);
     setBgImages([]);
+
+    // Add browser history entry (back/forward support)
+    if (!skipPushState) {
+      window.history.pushState({ query: searchQuery }, "", `?q=${encodeURIComponent(searchQuery)}`);
+    }
 
     // Reset random seed for this search
     resetRandomSeed();
@@ -1502,7 +1507,7 @@ export default function Visushift() {
     setLoading(false);
   }, []);
 
-  const handleReset = useCallback(() => {
+  const handleReset = useCallback((skipPushState = false) => {
     setQuery("");
     setImages([]);
     setSearched(false);
@@ -1510,9 +1515,40 @@ export default function Visushift() {
     setTheme(makeDefaultTheme());
     setCardStyles([]);
     setLayoutMode(LAYOUT_MODES[0]);
+
+    if (!skipPushState) {
+      window.history.pushState({ query: "" }, "", "/");
+    }
   }, []);
 
   const closeLightbox = useCallback(() => setLightboxImage(null), []);
+
+  // Browser back/forward navigation
+  useEffect(() => {
+    const handlePopState = (event) => {
+      const state = event.state;
+      if (state && state.query) {
+        handleSearch(state.query, true);
+      } else {
+        handleReset(true);
+      }
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [handleSearch, handleReset]);
+
+  // Load search from URL query parameter on initial page load
+  const initialLoadRef = useRef(true);
+  useEffect(() => {
+    if (initialLoadRef.current) {
+      initialLoadRef.current = false;
+      const params = new URLSearchParams(window.location.search);
+      const q = params.get("q");
+      if (q) {
+        handleSearch(q, true);
+      }
+    }
+  }, [handleSearch]);
 
   useEffect(() => {
     if (lightboxImage) {
