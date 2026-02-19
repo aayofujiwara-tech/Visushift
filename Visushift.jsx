@@ -103,8 +103,8 @@ const THEMES = {
     glow: "rgba(255, 214, 10, 0.4)",
     text: "#fff1d0",
     subtext: "#ffd60a",
-    font: "'Poppins', sans-serif",
-    bodyFont: "'Inter', sans-serif",
+    font: "'Sora', sans-serif",
+    bodyFont: "'Outfit', sans-serif",
     emoji: "🔍",
     mood: "Explore",
   },
@@ -125,7 +125,7 @@ const SUGGEST_CHIPS = [
 ];
 
 const GOOGLE_FONTS_URL =
-  "https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Source+Sans+3:wght@400;600&family=Orbitron:wght@400;700&family=Exo+2:wght@400;600&family=Cormorant+Garamond:wght@400;700&family=Nunito:wght@400;600&family=Abril+Fatface&family=Lato:wght@400;700&family=DM+Serif+Display&family=Libre+Franklin:wght@400;600&family=Bodoni+Moda:wght@400;700&family=Karla:wght@400;600&family=Poppins:wght@400;700&family=Inter:wght@400;600&display=swap";
+  "https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Source+Sans+3:wght@400;600&family=Orbitron:wght@400;700&family=Exo+2:wght@400;600&family=Cormorant+Garamond:wght@400;700&family=Nunito:wght@400;600&family=Abril+Fatface&family=Lato:wght@400;700&family=DM+Serif+Display&family=Libre+Franklin:wght@400;600&family=Bodoni+Moda:wght@400;700&family=Karla:wght@400;600&family=Sora:wght@400;700&family=Outfit:wght@400;600&display=swap";
 
 function detectTheme(query) {
   if (!query) return "default";
@@ -246,9 +246,18 @@ function Header({ theme, query, onSearch, onReset }) {
     setInput(query);
   }, [query]);
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
+  useEffect(() => {
+    if (inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, []);
+
+  const triggerSearch = () => {
     if (input.trim()) onSearch(input.trim());
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter") triggerSearch();
   };
 
   return (
@@ -296,12 +305,13 @@ function Header({ theme, query, onSearch, onReset }) {
         </span>
       </div>
 
-      <form onSubmit={handleSubmit} style={{ flex: 1, maxWidth: 560, display: "flex", gap: 8 }}>
+      <div style={{ flex: 1, maxWidth: 560, display: "flex", gap: 8 }}>
         <div style={{ flex: 1, position: "relative" }}>
           <input
             ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
             onFocus={() => setFocused(true)}
             onBlur={() => setFocused(false)}
             placeholder="Search for inspiration..."
@@ -321,7 +331,8 @@ function Header({ theme, query, onSearch, onReset }) {
           />
         </div>
         <button
-          type="submit"
+          type="button"
+          onClick={triggerSearch}
           style={{
             padding: "10px 20px",
             borderRadius: 12,
@@ -338,7 +349,7 @@ function Header({ theme, query, onSearch, onReset }) {
         >
           Search
         </button>
-      </form>
+      </div>
 
       <div
         style={{
@@ -523,6 +534,40 @@ function ImageCard({ image, index, theme, onClick }) {
   const [loaded, setLoaded] = useState(false);
   const [hovered, setHovered] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState(false);
+
+  if (error) {
+    return (
+      <div
+        style={{
+          borderRadius: 16,
+          overflow: "hidden",
+          border: `1px solid ${theme.border}`,
+          background: theme.cardBg,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "40px 16px",
+          minHeight: 200,
+          animation: `fadeSlideUp 0.5s cubic-bezier(0.23, 1, 0.32, 1) ${index * 60}ms both`,
+        }}
+      >
+        <div style={{ fontSize: 32, marginBottom: 12, opacity: 0.4 }}>🖼️</div>
+        <p
+          style={{
+            fontFamily: theme.bodyFont,
+            fontSize: 13,
+            color: theme.subtext,
+            opacity: 0.6,
+            textAlign: "center",
+          }}
+        >
+          Image not available
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -547,6 +592,7 @@ function ImageCard({ image, index, theme, onClick }) {
         src={image.url}
         alt={image.title}
         onLoad={() => setLoaded(true)}
+        onError={() => setError(true)}
         style={{
           width: "100%",
           display: "block",
@@ -595,32 +641,116 @@ function ImageCard({ image, index, theme, onClick }) {
           position: "absolute",
           top: 8,
           right: 8,
-          width: 32,
-          height: 32,
+          padding: "4px 10px",
           borderRadius: 8,
           border: "none",
           background: saved ? theme.primary : "rgba(0,0,0,0.5)",
           color: "#fff",
-          fontSize: 14,
+          fontSize: 11,
+          fontFamily: theme.bodyFont,
+          fontWeight: 600,
           cursor: "pointer",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
+          gap: 4,
           opacity: hovered ? 1 : 0,
           transition: "all 0.3s cubic-bezier(0.23, 1, 0.32, 1)",
           backdropFilter: "blur(10px)",
+          letterSpacing: 0.3,
         }}
       >
-        {saved ? "♥" : "♡"}
+        <svg
+          width="12"
+          height="12"
+          viewBox="0 0 24 24"
+          fill={saved ? "currentColor" : "none"}
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+        </svg>
+        {saved ? "Saved" : "Save"}
       </button>
     </div>
   );
 }
 
+function useColumnCount() {
+  const [columns, setColumns] = useState(() => {
+    if (typeof window === "undefined") return 4;
+    const w = window.innerWidth;
+    if (w >= 1200) return 4;
+    if (w >= 768) return 3;
+    if (w >= 480) return 2;
+    return 1;
+  });
+
+  useEffect(() => {
+    const handleResize = () => {
+      const w = window.innerWidth;
+      if (w >= 1200) setColumns(4);
+      else if (w >= 768) setColumns(3);
+      else if (w >= 480) setColumns(2);
+      else setColumns(1);
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  return columns;
+}
+
+function SearchResultsHeader({ query, count, theme }) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "baseline",
+        padding: "24px 24px 8px",
+        maxWidth: 1400,
+        margin: "0 auto",
+        position: "relative",
+        zIndex: 1,
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
+        <span style={{ fontSize: 22 }}>{theme.emoji}</span>
+        <h2
+          style={{
+            fontFamily: theme.font,
+            fontSize: 24,
+            fontWeight: 700,
+            color: theme.text,
+            transition: "color 0.8s ease",
+          }}
+        >
+          {query}
+        </h2>
+      </div>
+      <span
+        style={{
+          fontFamily: theme.bodyFont,
+          fontSize: 13,
+          color: theme.subtext,
+          flexShrink: 0,
+          transition: "color 0.8s ease",
+        }}
+      >
+        {count} images found
+      </span>
+    </div>
+  );
+}
+
 function MasonryGrid({ images, theme, onImageClick }) {
-  const columns = [[], [], [], []];
+  const columnCount = useColumnCount();
+  const columns = Array.from({ length: columnCount }, () => []);
   images.forEach((img, i) => {
-    columns[i % 4].push({ ...img, _index: i });
+    columns[i % columnCount].push({ ...img, _index: i });
   });
 
   return (
@@ -628,7 +758,7 @@ function MasonryGrid({ images, theme, onImageClick }) {
       style={{
         display: "flex",
         gap: 16,
-        padding: "24px 24px 60px",
+        padding: "0 24px 60px",
         maxWidth: 1400,
         margin: "0 auto",
         position: "relative",
@@ -653,6 +783,15 @@ function MasonryGrid({ images, theme, onImageClick }) {
 }
 
 function Lightbox({ image, theme, onClose }) {
+  useEffect(() => {
+    if (!image) return;
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [image, onClose]);
+
   if (!image) return null;
 
   return (
@@ -745,7 +884,7 @@ function Loading({ theme }) {
           border: `3px solid ${theme.border}`,
           borderTopColor: theme.accent,
           borderRadius: "50%",
-          animation: "spin 0.8s linear infinite",
+          animation: "spin 0.8s linear infinite, pulseGlow 2s ease-in-out infinite",
           marginBottom: 16,
         }}
       />
@@ -791,6 +930,8 @@ export default function Visushift() {
     setThemeKey("default");
   }, []);
 
+  const closeLightbox = useCallback(() => setLightboxImage(null), []);
+
   useEffect(() => {
     if (lightboxImage) {
       document.body.style.overflow = "hidden";
@@ -813,10 +954,13 @@ export default function Visushift() {
       ) : loading ? (
         <Loading theme={theme} />
       ) : (
-        <MasonryGrid images={images} theme={theme} onImageClick={setLightboxImage} />
+        <>
+          <SearchResultsHeader query={query} count={images.length} theme={theme} />
+          <MasonryGrid images={images} theme={theme} onImageClick={setLightboxImage} />
+        </>
       )}
 
-      <Lightbox image={lightboxImage} theme={theme} onClose={() => setLightboxImage(null)} />
+      <Lightbox image={lightboxImage} theme={theme} onClose={closeLightbox} />
     </>
   );
 }
