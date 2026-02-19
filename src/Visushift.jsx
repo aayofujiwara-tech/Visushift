@@ -863,7 +863,7 @@ function ImageCard({ image, index, theme, onClick, t, cardStyle }) {
         style={{
           width: "100%",
           display: "block",
-          maxHeight: isMobile ? "none" : 260,
+          maxHeight: isMobile ? "none" : 320,
           objectFit: "cover",
           filter: hovered ? "brightness(1.1)" : "brightness(1)",
           transition: "filter 0.4s ease",
@@ -1000,43 +1000,62 @@ function ScatterLayout({ images, theme, onImageClick, t, cardStyles }) {
   const isTablet = typeof window !== "undefined" && window.innerWidth >= 480 && window.innerWidth < 768;
 
   // Card size (smaller on PC for more background visibility)
-  const cardWidth = isMobile ? 280 : isTablet ? 220 : 240;
+  const cardWidth = isMobile ? 300 : isTablet ? 260 : 300;
 
   // Limit displayed images (scatter doesn't need all 20)
   const displayCount = isMobile ? 8 : isTablet ? 12 : 16;
   const displayImages = images.slice(0, displayCount);
 
   useEffect(() => {
-    const containerWidth = window.innerWidth;
-    const cols = isMobile ? 1 : isTablet ? 2 : 4;
-    const rows = Math.ceil(displayImages.length / cols);
-    const cellWidth = containerWidth / cols;
-    const cellHeight = isMobile ? 320 : 380;
+    const calculatePositions = () => {
+      const containerWidth = window.innerWidth;
+      const mobile = containerWidth < 480;
+      const tablet = containerWidth >= 480 && containerWidth < 768;
+      const cols = mobile ? 1 : tablet ? 2 : 4;
 
-    const newPositions = displayImages.map((_, i) => {
-      const col = i % cols;
-      const row = Math.floor(i / cols);
+      // Cell size = card width + minimum padding to guarantee no overlap
+      const minPadding = 40;
+      const cellWidth = containerWidth / cols;
+      const cardHeight = 340;
+      const cellHeight = cardHeight + minPadding + 60;
 
-      // Cell center as base, then add random offset
-      const baseCenterX = col * cellWidth + cellWidth / 2 - cardWidth / 2;
-      const baseCenterY = row * cellHeight + cellHeight / 2 - 140;
+      // Max offset within cell (stays inside cell boundaries)
+      const maxOffsetX = Math.max(0, (cellWidth - cardWidth - minPadding) / 2);
+      const maxOffsetY = Math.max(0, 30);
 
-      // Large random offsets for scatter effect
-      const offsetX = isMobile ? 0 : (Math.sin((_globalSeed + i * 3571) * 0.0001) * cellWidth * 0.25);
-      const offsetY = isMobile ? 0 : (Math.cos((_globalSeed + i * 7919) * 0.0001) * cellHeight * 0.2);
+      const newPositions = displayImages.map((_, i) => {
+        const col = i % cols;
+        const row = Math.floor(i / cols);
 
-      return {
-        x: Math.max(16, Math.min(containerWidth - cardWidth - 16, baseCenterX + offsetX)),
-        y: baseCenterY + offsetY,
-      };
-    });
+        // Cell top-left
+        const cellX = col * cellWidth;
+        const cellY = row * cellHeight;
 
-    setPositions(newPositions);
-  }, [displayImages.length, isMobile, isTablet, cardWidth]);
+        // Center card within cell
+        const centerX = cellX + (cellWidth - cardWidth) / 2;
+        const centerY = cellY + minPadding / 2;
+
+        // Random offset within cell (never exceeds cell bounds)
+        const offsetX = mobile ? 0 : Math.sin((_globalSeed + i * 3571) * 0.0001) * maxOffsetX;
+        const offsetY = mobile ? 0 : Math.cos((_globalSeed + i * 7919) * 0.0001) * maxOffsetY;
+
+        return {
+          x: Math.max(8, Math.min(containerWidth - cardWidth - 8, centerX + offsetX)),
+          y: Math.max(0, centerY + offsetY),
+        };
+      });
+
+      setPositions(newPositions);
+    };
+
+    calculatePositions();
+    window.addEventListener("resize", calculatePositions);
+    return () => window.removeEventListener("resize", calculatePositions);
+  }, [displayImages.length, cardWidth]);
 
   // Calculate container height from card positions
   const containerHeight = positions.length > 0
-    ? Math.max(...positions.map(p => p.y)) + 400
+    ? Math.max(...positions.map(p => p.y)) + 450
     : 800;
 
   // Mobile: simple vertical flow with generous gap
@@ -1277,7 +1296,7 @@ export default function Visushift() {
     // Generate random card styles
     const styles = results.map((_, i) => ({
       borderRadius: randomInRange(8, 32, i),
-      rotation: randomInRange(-6, 6, i),
+      rotation: randomInRange(-4, 4, i),
       scale: randomInRange(0.85, 1.1, i),
       paddingBottom: randomInRange(0, 8, i),
       marginTop: 0,
