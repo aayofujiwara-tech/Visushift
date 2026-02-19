@@ -2,6 +2,33 @@ import { useState, useEffect, useRef, useCallback } from "react";
 
 const UNSPLASH_ACCESS_KEY = import.meta.env.VITE_UNSPLASH_ACCESS_KEY || "";
 
+const I18N = {
+  en: {
+    searchPlaceholder: "Search for inspiration...",
+    searchButton: "Search",
+    heroTitle: "What inspires you?",
+    heroSubtitle: "Search for anything and watch the entire interface transform to match your inspiration.",
+    recentSearches: "Recent searches",
+    imagesFound: (count) => `${count} images found`,
+    discovering: "Discovering images...",
+    imageNotAvailable: "Image not available",
+    save: "Save",
+    saved: "Saved",
+  },
+  ja: {
+    searchPlaceholder: "インスピレーションを検索...",
+    searchButton: "検索",
+    heroTitle: "何にインスパイアされますか？",
+    heroSubtitle: "何でも検索してみてください。インターフェース全体がテーマに合わせて変化します。",
+    recentSearches: "最近の検索",
+    imagesFound: (count) => `${count}枚の画像が見つかりました`,
+    discovering: "画像を探しています...",
+    imageNotAvailable: "画像を読み込めません",
+    save: "保存",
+    saved: "保存済み",
+  },
+};
+
 const THEMES = {
   nature: {
     primary: "#2d6a4f",
@@ -16,7 +43,7 @@ const THEMES = {
     font: "'Playfair Display', serif",
     bodyFont: "'Source Sans 3', sans-serif",
     emoji: "🌿",
-    mood: "Nature",
+    mood: { en: "Nature", ja: "自然" },
   },
   space: {
     primary: "#7b2cbf",
@@ -31,7 +58,7 @@ const THEMES = {
     font: "'Orbitron', sans-serif",
     bodyFont: "'Exo 2', sans-serif",
     emoji: "🚀",
-    mood: "Space",
+    mood: { en: "Space", ja: "宇宙" },
   },
   ocean: {
     primary: "#0077b6",
@@ -46,7 +73,7 @@ const THEMES = {
     font: "'Cormorant Garamond', serif",
     bodyFont: "'Nunito', sans-serif",
     emoji: "🌊",
-    mood: "Ocean",
+    mood: { en: "Ocean", ja: "海" },
   },
   food: {
     primary: "#e85d04",
@@ -61,7 +88,7 @@ const THEMES = {
     font: "'Abril Fatface', serif",
     bodyFont: "'Lato', sans-serif",
     emoji: "🍽️",
-    mood: "Food",
+    mood: { en: "Food", ja: "料理" },
   },
   architecture: {
     primary: "#6c757d",
@@ -76,7 +103,7 @@ const THEMES = {
     font: "'DM Serif Display', serif",
     bodyFont: "'Libre Franklin', sans-serif",
     emoji: "🏛️",
-    mood: "Architecture",
+    mood: { en: "Architecture", ja: "建築" },
   },
   art: {
     primary: "#c9184a",
@@ -91,7 +118,7 @@ const THEMES = {
     font: "'Bodoni Moda', serif",
     bodyFont: "'Karla', sans-serif",
     emoji: "🎨",
-    mood: "Art",
+    mood: { en: "Art", ja: "アート" },
   },
   default: {
     primary: "#d00000",
@@ -106,7 +133,7 @@ const THEMES = {
     font: "'Sora', sans-serif",
     bodyFont: "'Outfit', sans-serif",
     emoji: "🔍",
-    mood: "Explore",
+    mood: { en: "Explore", ja: "探索" },
   },
 };
 
@@ -119,10 +146,10 @@ const THEME_PATTERNS = [
   { key: "art", regex: /art|paint|museum|abstract|drawing|sculpture|gallery|canvas/i },
 ];
 
-const SUGGEST_CHIPS = [
-  "Nature", "Space", "Ocean", "Food", "Architecture",
-  "Art", "Mountains", "Flowers", "Cities", "Animals",
-];
+const SUGGEST_CHIPS = {
+  en: ["Nature", "Space", "Ocean", "Food", "Architecture", "Art", "Mountains", "Flowers", "Cities", "Animals"],
+  ja: ["自然", "宇宙", "海", "料理", "建築", "アート", "山", "花", "都市", "動物"],
+};
 
 const GOOGLE_FONTS_URL =
   "https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Source+Sans+3:wght@400;600&family=Orbitron:wght@400;700&family=Exo+2:wght@400;600&family=Cormorant+Garamond:wght@400;700&family=Nunito:wght@400;600&family=Abril+Fatface&family=Lato:wght@400;700&family=DM+Serif+Display&family=Libre+Franklin:wght@400;600&family=Bodoni+Moda:wght@400;700&family=Karla:wght@400;600&family=Sora:wght@400;700&family=Outfit:wght@400;600&display=swap";
@@ -237,7 +264,7 @@ function Particles({ theme }) {
   );
 }
 
-function Header({ theme, query, onSearch, onReset }) {
+function Header({ theme, query, onSearch, onReset, lang, onToggleLang, t }) {
   const [input, setInput] = useState("");
   const [focused, setFocused] = useState(false);
   const inputRef = useRef(null);
@@ -314,7 +341,7 @@ function Header({ theme, query, onSearch, onReset }) {
             onKeyDown={handleKeyDown}
             onFocus={() => setFocused(true)}
             onBlur={() => setFocused(false)}
-            placeholder="Search for inspiration..."
+            placeholder={t.searchPlaceholder}
             style={{
               width: "100%",
               padding: "10px 16px",
@@ -347,7 +374,7 @@ function Header({ theme, query, onSearch, onReset }) {
             flexShrink: 0,
           }}
         >
-          Search
+          {t.searchButton}
         </button>
       </div>
 
@@ -355,37 +382,70 @@ function Header({ theme, query, onSearch, onReset }) {
         style={{
           display: "flex",
           alignItems: "center",
-          gap: 8,
+          gap: 12,
           flexShrink: 0,
         }}
       >
-        <div
+        <button
+          type="button"
+          onClick={onToggleLang}
           style={{
-            width: 10,
-            height: 10,
-            borderRadius: "50%",
-            background: theme.accent,
-            boxShadow: `0 0 8px ${theme.glow}`,
-            transition: "all 0.8s ease",
-          }}
-        />
-        <span
-          style={{
-            fontSize: 13,
+            padding: "6px 12px",
+            borderRadius: 8,
+            border: `1px solid ${theme.border}`,
+            background: "rgba(255,255,255,0.07)",
             color: theme.subtext,
-            fontFamily: theme.bodyFont,
+            fontSize: 12,
             fontWeight: 600,
-            transition: "color 0.8s ease",
+            cursor: "pointer",
+            transition: "all 0.3s cubic-bezier(0.23, 1, 0.32, 1)",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.borderColor = theme.accent;
+            e.currentTarget.style.color = theme.text;
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.borderColor = theme.border;
+            e.currentTarget.style.color = theme.subtext;
           }}
         >
-          {theme.mood}
-        </span>
+          {lang === "en" ? "日本語" : "EN"}
+        </button>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+          }}
+        >
+          <div
+            style={{
+              width: 10,
+              height: 10,
+              borderRadius: "50%",
+              background: theme.accent,
+              boxShadow: `0 0 8px ${theme.glow}`,
+              transition: "all 0.8s ease",
+            }}
+          />
+          <span
+            style={{
+              fontSize: 13,
+              color: theme.subtext,
+              fontFamily: theme.bodyFont,
+              fontWeight: 600,
+              transition: "color 0.8s ease",
+            }}
+          >
+            {theme.mood[lang]}
+          </span>
+        </div>
       </div>
     </header>
   );
 }
 
-function Landing({ theme, onSearch, history }) {
+function Landing({ theme, onSearch, history, lang, t }) {
   return (
     <div
       style={{
@@ -421,7 +481,7 @@ function Landing({ theme, onSearch, history }) {
           transition: "all 0.8s ease",
         }}
       >
-        What inspires you?
+        {t.heroTitle}
       </h1>
       <p
         style={{
@@ -435,7 +495,7 @@ function Landing({ theme, onSearch, history }) {
           transition: "color 0.8s ease",
         }}
       >
-        Search for anything and watch the entire interface transform to match your inspiration.
+        {t.heroSubtitle}
       </p>
 
       <div
@@ -448,10 +508,10 @@ function Landing({ theme, onSearch, history }) {
           marginBottom: 40,
         }}
       >
-        {SUGGEST_CHIPS.map((chip) => (
+        {SUGGEST_CHIPS[lang].map((chip, i) => (
           <button
-            key={chip}
-            onClick={() => onSearch(chip)}
+            key={SUGGEST_CHIPS.en[i]}
+            onClick={() => onSearch(SUGGEST_CHIPS.en[i])}
             style={{
               padding: "8px 20px",
               borderRadius: 20,
@@ -493,7 +553,7 @@ function Landing({ theme, onSearch, history }) {
               opacity: 0.7,
             }}
           >
-            Recent searches
+            {t.recentSearches}
           </p>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center" }}>
             {history.map((item, i) => (
@@ -530,7 +590,7 @@ function Landing({ theme, onSearch, history }) {
   );
 }
 
-function ImageCard({ image, index, theme, onClick }) {
+function ImageCard({ image, index, theme, onClick, t }) {
   const [loaded, setLoaded] = useState(false);
   const [hovered, setHovered] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -563,7 +623,7 @@ function ImageCard({ image, index, theme, onClick }) {
             textAlign: "center",
           }}
         >
-          Image not available
+          {t.imageNotAvailable}
         </p>
       </div>
     );
@@ -672,7 +732,7 @@ function ImageCard({ image, index, theme, onClick }) {
         >
           <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
         </svg>
-        {saved ? "Saved" : "Save"}
+        {saved ? t.saved : t.save}
       </button>
     </div>
   );
@@ -703,7 +763,7 @@ function useColumnCount() {
   return columns;
 }
 
-function SearchResultsHeader({ query, count, theme }) {
+function SearchResultsHeader({ query, count, theme, t }) {
   return (
     <div
       style={{
@@ -740,13 +800,13 @@ function SearchResultsHeader({ query, count, theme }) {
           transition: "color 0.8s ease",
         }}
       >
-        {count} images found
+        {t.imagesFound(count)}
       </span>
     </div>
   );
 }
 
-function MasonryGrid({ images, theme, onImageClick }) {
+function MasonryGrid({ images, theme, onImageClick, t }) {
   const columnCount = useColumnCount();
   const columns = Array.from({ length: columnCount }, () => []);
   images.forEach((img, i) => {
@@ -774,6 +834,7 @@ function MasonryGrid({ images, theme, onImageClick }) {
               index={img._index}
               theme={theme}
               onClick={onImageClick}
+              t={t}
             />
           ))}
         </div>
@@ -864,7 +925,7 @@ function Lightbox({ image, theme, onClose }) {
   );
 }
 
-function Loading({ theme }) {
+function Loading({ theme, t }) {
   return (
     <div
       style={{
@@ -889,7 +950,7 @@ function Loading({ theme }) {
         }}
       />
       <p style={{ fontFamily: theme.bodyFont, fontSize: 15, color: theme.subtext }}>
-        Discovering images...
+        {t.discovering}
       </p>
     </div>
   );
@@ -903,8 +964,14 @@ export default function Visushift() {
   const [lightboxImage, setLightboxImage] = useState(null);
   const [history, setHistory] = useState([]);
   const [themeKey, setThemeKey] = useState("default");
+  const [lang, setLang] = useState("en");
 
   const theme = THEMES[themeKey];
+  const t = I18N[lang];
+
+  const handleToggleLang = useCallback(() => {
+    setLang((prev) => (prev === "en" ? "ja" : "en"));
+  }, []);
 
   const handleSearch = useCallback(async (searchQuery) => {
     setQuery(searchQuery);
@@ -947,16 +1014,16 @@ export default function Visushift() {
     <>
       <GlobalStyles theme={theme} />
       <Particles theme={theme} />
-      <Header theme={theme} query={query} onSearch={handleSearch} onReset={handleReset} />
+      <Header theme={theme} query={query} onSearch={handleSearch} onReset={handleReset} lang={lang} onToggleLang={handleToggleLang} t={t} />
 
       {!searched ? (
-        <Landing theme={theme} onSearch={handleSearch} history={history} />
+        <Landing theme={theme} onSearch={handleSearch} history={history} lang={lang} t={t} />
       ) : loading ? (
-        <Loading theme={theme} />
+        <Loading theme={theme} t={t} />
       ) : (
         <>
-          <SearchResultsHeader query={query} count={images.length} theme={theme} />
-          <MasonryGrid images={images} theme={theme} onImageClick={setLightboxImage} />
+          <SearchResultsHeader query={query} count={images.length} theme={theme} t={t} />
+          <MasonryGrid images={images} theme={theme} onImageClick={setLightboxImage} t={t} />
         </>
       )}
 
