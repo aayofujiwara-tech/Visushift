@@ -222,12 +222,19 @@ function createDynamicTheme(palette, fonts) {
 async function fetchImages(query) {
   if (UNSPLASH_ACCESS_KEY) {
     try {
+      const randomPage = Math.floor(Math.random() * 5) + 1;
       const res = await fetch(
-        `https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&per_page=20&client_id=${UNSPLASH_ACCESS_KEY}`
+        `https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&per_page=20&page=${randomPage}&order_by=relevant&client_id=${UNSPLASH_ACCESS_KEY}`
       );
       if (!res.ok) throw new Error("Unsplash API error");
       const data = await res.json();
-      return data.results.map((photo) => ({
+      // Fisher-Yates shuffle
+      const shuffled = [...data.results];
+      for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+      }
+      return shuffled.map((photo) => ({
         id: photo.id,
         url: photo.urls.regular,
         title: photo.description || photo.alt_description || query,
@@ -238,12 +245,14 @@ async function fetchImages(query) {
       // fall through to Picsum
     }
   }
+  const timestamp = Date.now();
   return Array.from({ length: 20 }, (_, i) => {
     const w = 400 + (i % 3) * 100;
     const h = 300 + ((i * 7) % 5) * 100;
+    const seed = `${query}${timestamp}${i}`;
     return {
-      id: `picsum-${query}-${i}`,
-      url: `https://picsum.photos/seed/${encodeURIComponent(query)}${i}/${w}/${h}`,
+      id: `picsum-${seed}`,
+      url: `https://picsum.photos/seed/${encodeURIComponent(seed)}/${w}/${h}`,
       title: `${query} #${i + 1}`,
       source: "Picsum Photos",
       color: null,
