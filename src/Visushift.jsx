@@ -498,11 +498,45 @@ function GlobalStyles({ theme }) {
           from { opacity: 0; }
           to { opacity: 0.75; }
         }
-        /* Wood grain overlay for frames */
-        .wood-grain {
-          position: relative;
+        /* Coarse grain (warm woods: walnut, mahogany, cherry) */
+        .wood-grain-coarse { position: relative; }
+        .wood-grain-coarse::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          border-radius: inherit;
+          opacity: 0.15;
+          background: repeating-linear-gradient(
+            var(--grain-angle, 85deg),
+            transparent 0px, transparent 3px,
+            rgba(0,0,0,0.1) 3px, rgba(0,0,0,0.1) 5px,
+            transparent 5px, transparent 11px,
+            rgba(0,0,0,0.06) 11px, rgba(0,0,0,0.06) 13px,
+            transparent 13px, transparent 22px,
+            rgba(0,0,0,0.04) 22px, rgba(0,0,0,0.04) 23px
+          );
+          pointer-events: none;
+          z-index: 1;
         }
-        .wood-grain::before {
+        .wood-grain-coarse::after {
+          content: '';
+          position: absolute;
+          inset: 0;
+          border-radius: inherit;
+          opacity: 0.08;
+          background: repeating-linear-gradient(
+            calc(var(--grain-angle, 85deg) + 5deg),
+            transparent 0px, transparent 8px,
+            rgba(70,35,10,0.1) 8px, rgba(70,35,10,0.1) 10px,
+            transparent 10px, transparent 28px
+          );
+          pointer-events: none;
+          z-index: 1;
+        }
+
+        /* Medium grain (neutral woods: maple, pine) */
+        .wood-grain-medium { position: relative; }
+        .wood-grain-medium::before {
           content: '';
           position: absolute;
           inset: 0;
@@ -510,23 +544,17 @@ function GlobalStyles({ theme }) {
           opacity: 0.12;
           background: repeating-linear-gradient(
             var(--grain-angle, 87deg),
-            transparent 0px,
-            transparent 2px,
-            rgba(0,0,0,0.08) 2px,
-            rgba(0,0,0,0.08) 3px,
-            transparent 3px,
-            transparent 7px,
-            rgba(0,0,0,0.05) 7px,
-            rgba(0,0,0,0.05) 8px,
-            transparent 8px,
-            transparent 14px,
-            rgba(0,0,0,0.03) 14px,
-            rgba(0,0,0,0.03) 15px
+            transparent 0px, transparent 2px,
+            rgba(0,0,0,0.08) 2px, rgba(0,0,0,0.08) 3px,
+            transparent 3px, transparent 7px,
+            rgba(0,0,0,0.05) 7px, rgba(0,0,0,0.05) 8px,
+            transparent 8px, transparent 14px,
+            rgba(0,0,0,0.03) 14px, rgba(0,0,0,0.03) 15px
           );
           pointer-events: none;
           z-index: 1;
         }
-        .wood-grain::after {
+        .wood-grain-medium::after {
           content: '';
           position: absolute;
           inset: 0;
@@ -534,14 +562,45 @@ function GlobalStyles({ theme }) {
           opacity: 0.06;
           background: repeating-linear-gradient(
             calc(var(--grain-angle, 87deg) + 3deg),
-            transparent 0px,
-            transparent 5px,
-            rgba(60,30,10,0.1) 5px,
-            rgba(60,30,10,0.1) 6px,
-            transparent 6px,
-            transparent 18px,
-            rgba(80,40,15,0.06) 18px,
-            rgba(80,40,15,0.06) 19px
+            transparent 0px, transparent 5px,
+            rgba(60,30,10,0.08) 5px, rgba(60,30,10,0.08) 6px,
+            transparent 6px, transparent 18px
+          );
+          pointer-events: none;
+          z-index: 1;
+        }
+
+        /* Fine grain (cool woods: oak, ash, ebony) */
+        .wood-grain-fine { position: relative; }
+        .wood-grain-fine::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          border-radius: inherit;
+          opacity: 0.1;
+          background: repeating-linear-gradient(
+            var(--grain-angle, 90deg),
+            transparent 0px, transparent 1px,
+            rgba(0,0,0,0.06) 1px, rgba(0,0,0,0.06) 2px,
+            transparent 2px, transparent 4px,
+            rgba(0,0,0,0.04) 4px, rgba(0,0,0,0.04) 5px,
+            transparent 5px, transparent 8px,
+            rgba(0,0,0,0.02) 8px, rgba(0,0,0,0.02) 9px
+          );
+          pointer-events: none;
+          z-index: 1;
+        }
+        .wood-grain-fine::after {
+          content: '';
+          position: absolute;
+          inset: 0;
+          border-radius: inherit;
+          opacity: 0.05;
+          background: repeating-linear-gradient(
+            calc(var(--grain-angle, 90deg) + 2deg),
+            transparent 0px, transparent 3px,
+            rgba(40,40,50,0.06) 3px, rgba(40,40,50,0.06) 4px,
+            transparent 4px, transparent 10px
           );
           pointer-events: none;
           z-index: 1;
@@ -1008,66 +1067,133 @@ function generateFrameStyle(imageColor, theme, index) {
     if (c) baseColor = c;
   }
 
-  // Calculate luminance and saturation from image color
-  const luminance = (baseColor.r * 0.299 + baseColor.g * 0.587 + baseColor.b * 0.114) / 255;
-  const sat = saturation(baseColor);
-  const warmth = baseColor.r - baseColor.b;
+  const clamp = (v) => Math.min(255, Math.max(0, Math.round(v)));
+  const bc = baseColor;
 
-  // Determine frame type based on image color characteristics
-  let frameType;
-  if (warmth > 30 && luminance < 0.5) {
-    frameType = "darkWood";
-  } else if (warmth > 30 && luminance >= 0.5) {
-    frameType = "lightWood";
-  } else if (warmth < -20 && sat > 0.3) {
-    frameType = "silver";
-  } else if (luminance > 0.6) {
-    frameType = "white";
-  } else if (sat > 0.5) {
-    frameType = "gold";
-  } else {
-    frameType = "darkWood";
+  // Calculate luminance and saturation from image color
+  const luminance = (bc.r * 0.299 + bc.g * 0.587 + bc.b * 0.114) / 255;
+  const sat = saturation(bc);
+  const warmth = bc.r - bc.b;
+
+  // Determine frame type based on image color characteristics (10 types)
+  function determineFrameType(baseCol, lum, s, w, idx) {
+    if (lum < 0.25) return "ebony";
+    if (baseCol.r > baseCol.g + 30 && lum >= 0.3 && lum < 0.6) return "cherry";
+    if (s > 0.5 && w > 20) return "gold";
+    if (s > 0.4 && w < -20) return "silver";
+    if (w > 40 && lum < 0.4) return "walnut";
+    if (w > 30 && lum < 0.55) return "mahogany";
+    if (w > 20 && lum >= 0.55) return "maple";
+    if (w < -10 && lum < 0.45) return "oak";
+    if (w < -10 && lum >= 0.45) return "ash";
+    if (s < 0.3 && lum > 0.5) return "pine";
+    const fallbacks = ["walnut", "oak", "maple", "mahogany"];
+    return fallbacks[idx % fallbacks.length];
+  }
+
+  const frameType = determineFrameType(bc, luminance, sat, warmth, index);
+
+  // Dynamic mat color based on image color characteristics
+  function calculateMatColor(baseCol, lum, w, fType) {
+    if (fType === "ebony") {
+      return `rgb(${clamp(240 + baseCol.r * 0.03)}, ${clamp(238 + baseCol.g * 0.03)}, ${clamp(235 + baseCol.b * 0.03)})`;
+    }
+    if (w > 15) {
+      return `rgb(${clamp(242 + baseCol.r * 0.04)}, ${clamp(237 + baseCol.g * 0.03)}, ${clamp(228 + baseCol.b * 0.02)})`;
+    }
+    if (w < -10) {
+      return `rgb(${clamp(235 + baseCol.r * 0.02)}, ${clamp(237 + baseCol.g * 0.03)}, ${clamp(240 + baseCol.b * 0.04)})`;
+    }
+    return `rgb(${clamp(240 + baseCol.r * 0.03)}, ${clamp(238 + baseCol.g * 0.03)}, ${clamp(236 + baseCol.b * 0.03)})`;
   }
 
   const FRAME_STYLES = {
-    darkWood: {
-      outerLight: `rgb(${Math.min(255, Math.round(baseColor.r * 0.3 + 70))}, ${Math.min(255, Math.round(baseColor.g * 0.2 + 45))}, ${Math.min(255, Math.round(baseColor.b * 0.1 + 25))})`,
-      outerDark: `rgb(${Math.max(0, Math.round(baseColor.r * 0.15 + 20))}, ${Math.max(0, Math.round(baseColor.g * 0.1 + 12))}, ${Math.max(0, Math.round(baseColor.b * 0.05 + 5))})`,
-      outerMid: `rgb(${Math.min(255, Math.round(baseColor.r * 0.25 + 50))}, ${Math.min(255, Math.round(baseColor.g * 0.15 + 30))}, ${Math.min(255, Math.round(baseColor.b * 0.08 + 15))})`,
-      grooveColor: "rgba(0, 0, 0, 0.6)",
-      matColor: `rgb(${Math.min(255, Math.round(baseColor.r * 0.15 + 225))}, ${Math.min(255, Math.round(baseColor.g * 0.12 + 220))}, ${Math.min(255, Math.round(baseColor.b * 0.1 + 215))})`,
-      innerEdge: `rgba(${Math.min(255, Math.round(baseColor.r * 0.3 + 150))}, ${Math.min(255, Math.round(baseColor.g * 0.25 + 130))}, ${Math.min(255, Math.round(baseColor.b * 0.1 + 60))}, 0.6)`,
-      shadowColor: "rgba(20, 10, 5, 0.6)",
+    walnut: {
+      outerLight: `rgb(${clamp(bc.r*0.25+85)}, ${clamp(bc.g*0.15+48)}, ${clamp(bc.b*0.08+28)})`,
+      outerDark:  `rgb(${clamp(bc.r*0.12+35)}, ${clamp(bc.g*0.08+18)}, ${clamp(bc.b*0.04+8)})`,
+      outerMid:   `rgb(${clamp(bc.r*0.2+62)}, ${clamp(bc.g*0.12+35)}, ${clamp(bc.b*0.06+18)})`,
+      grooveColor: "rgba(15, 5, 0, 0.55)",
+      innerEdge: `rgba(${clamp(bc.r*0.3+140)}, ${clamp(bc.g*0.2+100)}, ${clamp(bc.b*0.1+50)}, 0.5)`,
+      shadowColor: "rgba(25, 12, 5, 0.6)",
       hasWoodGrain: true,
-      grainAngle: 85 + (index % 7) * 2,
     },
-    lightWood: {
-      outerLight: `rgb(${Math.min(255, Math.round(baseColor.r * 0.2 + 190))}, ${Math.min(255, Math.round(baseColor.g * 0.2 + 165))}, ${Math.min(255, Math.round(baseColor.b * 0.1 + 120))})`,
-      outerDark: `rgb(${Math.min(255, Math.round(baseColor.r * 0.2 + 140))}, ${Math.min(255, Math.round(baseColor.g * 0.15 + 110))}, ${Math.min(255, Math.round(baseColor.b * 0.1 + 70))})`,
-      outerMid: `rgb(${Math.min(255, Math.round(baseColor.r * 0.2 + 170))}, ${Math.min(255, Math.round(baseColor.g * 0.18 + 140))}, ${Math.min(255, Math.round(baseColor.b * 0.1 + 95))})`,
-      grooveColor: "rgba(80, 50, 20, 0.4)",
-      matColor: "rgb(250, 247, 242)",
-      innerEdge: "rgba(200, 175, 120, 0.5)",
-      shadowColor: "rgba(60, 40, 20, 0.4)",
+    mahogany: {
+      outerLight: `rgb(${clamp(bc.r*0.2+120)}, ${clamp(bc.g*0.1+55)}, ${clamp(bc.b*0.08+35)})`,
+      outerDark:  `rgb(${clamp(bc.r*0.12+55)}, ${clamp(bc.g*0.06+20)}, ${clamp(bc.b*0.04+12)})`,
+      outerMid:   `rgb(${clamp(bc.r*0.16+90)}, ${clamp(bc.g*0.08+38)}, ${clamp(bc.b*0.06+24)})`,
+      grooveColor: "rgba(30, 8, 5, 0.5)",
+      innerEdge: `rgba(${clamp(bc.r*0.25+160)}, ${clamp(bc.g*0.15+100)}, ${clamp(bc.b*0.08+55)}, 0.55)`,
+      shadowColor: "rgba(35, 15, 8, 0.55)",
       hasWoodGrain: true,
-      grainAngle: 83 + (index % 9) * 2,
+    },
+    cherry: {
+      outerLight: `rgb(${clamp(bc.r*0.2+145)}, ${clamp(bc.g*0.12+72)}, ${clamp(bc.b*0.08+48)})`,
+      outerDark:  `rgb(${clamp(bc.r*0.12+75)}, ${clamp(bc.g*0.06+30)}, ${clamp(bc.b*0.04+18)})`,
+      outerMid:   `rgb(${clamp(bc.r*0.16+115)}, ${clamp(bc.g*0.1+52)}, ${clamp(bc.b*0.06+32)})`,
+      grooveColor: "rgba(40, 12, 8, 0.45)",
+      innerEdge: `rgba(${clamp(bc.r*0.2+170)}, ${clamp(bc.g*0.12+110)}, ${clamp(bc.b*0.08+65)}, 0.5)`,
+      shadowColor: "rgba(40, 18, 10, 0.5)",
+      hasWoodGrain: true,
+    },
+    oak: {
+      outerLight: `rgb(${clamp(bc.r*0.1+135)}, ${clamp(bc.g*0.12+128)}, ${clamp(bc.b*0.15+118)})`,
+      outerDark:  `rgb(${clamp(bc.r*0.06+72)}, ${clamp(bc.g*0.08+68)}, ${clamp(bc.b*0.1+62)})`,
+      outerMid:   `rgb(${clamp(bc.r*0.08+105)}, ${clamp(bc.g*0.1+100)}, ${clamp(bc.b*0.12+92)})`,
+      grooveColor: "rgba(30, 30, 35, 0.5)",
+      innerEdge: `rgba(${clamp(bc.r*0.1+155)}, ${clamp(bc.g*0.1+152)}, ${clamp(bc.b*0.12+148)}, 0.45)`,
+      shadowColor: "rgba(30, 30, 35, 0.5)",
+      hasWoodGrain: true,
+    },
+    ash: {
+      outerLight: `rgb(${clamp(bc.r*0.08+210)}, ${clamp(bc.g*0.08+208)}, ${clamp(bc.b*0.1+205)})`,
+      outerDark:  `rgb(${clamp(bc.r*0.06+165)}, ${clamp(bc.g*0.06+162)}, ${clamp(bc.b*0.08+158)})`,
+      outerMid:   `rgb(${clamp(bc.r*0.07+190)}, ${clamp(bc.g*0.07+188)}, ${clamp(bc.b*0.09+184)})`,
+      grooveColor: "rgba(80, 80, 85, 0.3)",
+      innerEdge: "rgba(200, 200, 205, 0.4)",
+      shadowColor: "rgba(50, 50, 55, 0.35)",
+      hasWoodGrain: true,
+    },
+    maple: {
+      outerLight: `rgb(${clamp(bc.r*0.15+200)}, ${clamp(bc.g*0.15+175)}, ${clamp(bc.b*0.08+125)})`,
+      outerDark:  `rgb(${clamp(bc.r*0.12+150)}, ${clamp(bc.g*0.1+120)}, ${clamp(bc.b*0.05+75)})`,
+      outerMid:   `rgb(${clamp(bc.r*0.13+178)}, ${clamp(bc.g*0.12+150)}, ${clamp(bc.b*0.06+100)})`,
+      grooveColor: "rgba(90, 60, 25, 0.35)",
+      innerEdge: "rgba(210, 185, 130, 0.5)",
+      shadowColor: "rgba(65, 45, 20, 0.4)",
+      hasWoodGrain: true,
+    },
+    pine: {
+      outerLight: `rgb(${clamp(bc.r*0.1+215)}, ${clamp(bc.g*0.12+200)}, ${clamp(bc.b*0.06+165)})`,
+      outerDark:  `rgb(${clamp(bc.r*0.08+170)}, ${clamp(bc.g*0.1+155)}, ${clamp(bc.b*0.05+115)})`,
+      outerMid:   `rgb(${clamp(bc.r*0.09+195)}, ${clamp(bc.g*0.11+180)}, ${clamp(bc.b*0.055+140)})`,
+      grooveColor: "rgba(100, 70, 30, 0.3)",
+      innerEdge: "rgba(215, 195, 145, 0.45)",
+      shadowColor: "rgba(70, 50, 20, 0.35)",
+      hasWoodGrain: true,
+    },
+    ebony: {
+      outerLight: `rgb(${clamp(bc.r*0.08+55)}, ${clamp(bc.g*0.08+50)}, ${clamp(bc.b*0.1+48)})`,
+      outerDark:  `rgb(${clamp(bc.r*0.04+15)}, ${clamp(bc.g*0.04+12)}, ${clamp(bc.b*0.05+10)})`,
+      outerMid:   `rgb(${clamp(bc.r*0.06+35)}, ${clamp(bc.g*0.06+32)}, ${clamp(bc.b*0.08+30)})`,
+      grooveColor: "rgba(0, 0, 0, 0.7)",
+      innerEdge: "rgba(80, 75, 72, 0.5)",
+      shadowColor: "rgba(0, 0, 0, 0.65)",
+      hasWoodGrain: true,
     },
     gold: {
-      outerLight: `rgb(${Math.min(255, Math.round(baseColor.r * 0.2 + 210))}, ${Math.min(255, Math.round(baseColor.g * 0.2 + 185))}, ${Math.min(255, Math.round(baseColor.b * 0.05 + 90))})`,
-      outerDark: `rgb(${Math.min(255, Math.round(baseColor.r * 0.15 + 140))}, ${Math.min(255, Math.round(baseColor.g * 0.12 + 110))}, ${Math.min(255, Math.round(baseColor.b * 0.03 + 30))})`,
-      outerMid: `rgb(${Math.min(255, Math.round(baseColor.r * 0.18 + 180))}, ${Math.min(255, Math.round(baseColor.g * 0.16 + 155))}, ${Math.min(255, Math.round(baseColor.b * 0.04 + 60))})`,
+      outerLight: `rgb(${clamp(bc.r * 0.2 + 210)}, ${clamp(bc.g * 0.2 + 185)}, ${clamp(bc.b * 0.05 + 90)})`,
+      outerDark: `rgb(${clamp(bc.r * 0.15 + 140)}, ${clamp(bc.g * 0.12 + 110)}, ${clamp(bc.b * 0.03 + 30)})`,
+      outerMid: `rgb(${clamp(bc.r * 0.18 + 180)}, ${clamp(bc.g * 0.16 + 155)}, ${clamp(bc.b * 0.04 + 60)})`,
       grooveColor: "rgba(100, 70, 10, 0.5)",
-      matColor: `rgb(${Math.min(255, Math.round(baseColor.r * 0.1 + 240))}, ${Math.min(255, Math.round(baseColor.g * 0.1 + 235))}, ${Math.min(255, Math.round(baseColor.b * 0.1 + 225))})`,
       innerEdge: "rgba(220, 195, 100, 0.7)",
       shadowColor: "rgba(80, 55, 10, 0.5)",
       hasWoodGrain: false,
     },
     silver: {
-      outerLight: `rgb(${Math.min(255, Math.round(baseColor.r * 0.1 + 200))}, ${Math.min(255, Math.round(baseColor.g * 0.1 + 205))}, ${Math.min(255, Math.round(baseColor.b * 0.15 + 215))})`,
-      outerDark: `rgb(${Math.min(255, Math.round(baseColor.r * 0.08 + 130))}, ${Math.min(255, Math.round(baseColor.g * 0.08 + 135))}, ${Math.min(255, Math.round(baseColor.b * 0.12 + 145))})`,
-      outerMid: `rgb(${Math.min(255, Math.round(baseColor.r * 0.09 + 170))}, ${Math.min(255, Math.round(baseColor.g * 0.09 + 175))}, ${Math.min(255, Math.round(baseColor.b * 0.13 + 185))})`,
+      outerLight: `rgb(${clamp(bc.r * 0.1 + 200)}, ${clamp(bc.g * 0.1 + 205)}, ${clamp(bc.b * 0.15 + 215)})`,
+      outerDark: `rgb(${clamp(bc.r * 0.08 + 130)}, ${clamp(bc.g * 0.08 + 135)}, ${clamp(bc.b * 0.12 + 145)})`,
+      outerMid: `rgb(${clamp(bc.r * 0.09 + 170)}, ${clamp(bc.g * 0.09 + 175)}, ${clamp(bc.b * 0.13 + 185)})`,
       grooveColor: "rgba(60, 65, 75, 0.4)",
-      matColor: "rgb(248, 248, 252)",
       innerEdge: "rgba(180, 185, 200, 0.5)",
       shadowColor: "rgba(40, 45, 55, 0.4)",
       hasWoodGrain: false,
@@ -1086,11 +1212,41 @@ function generateFrameStyle(imageColor, theme, index) {
 
   const style = { ...FRAME_STYLES[frameType], frameType };
 
-  // Generate enhanced gradient for wood frames (more stops = richer texture)
-  if (frameType === "darkWood" || frameType === "lightWood") {
+  // Dynamic mat color from image accent (overwrite for non-white types)
+  if (frameType !== "white") {
+    style.matColor = calculateMatColor(bc, luminance, warmth, frameType);
+  }
+
+  // Grain angle: warm → diagonal (80-88°), cool → near-vertical (88-96°)
+  if (style.hasWoodGrain) {
+    style.grainAngle = warmth > 0
+      ? 80 + (index % 9)
+      : 88 + (index % 9);
+  }
+
+  // Grain density: warm→coarse, cool→fine, neutral→medium
+  if (style.hasWoodGrain) {
+    style.grainDensity = warmth > 30 ? "coarse" : warmth < -10 ? "fine" : "medium";
+  }
+
+  // Dynamic frame/mat width multipliers based on luminance
+  const frameWidthMultiplier = 1.3 - luminance * 0.6;
+  const matWidthMultiplier = 1.4 - luminance * 0.8;
+  style.frameWidthMultiplier = frameWidthMultiplier;
+  style.matWidthMultiplier = matWidthMultiplier;
+
+  // Generate outerGradient for all wood grain types (density-aware stop counts)
+  if (style.hasWoodGrain) {
     const { outerLight, outerDark, outerMid } = style;
-    const angle = style.grainAngle || 90;
-    style.outerGradient = `linear-gradient(${angle + 90}deg, ${outerDark} 0%, ${outerLight} 8%, ${outerMid} 16%, ${outerLight} 22%, ${outerDark} 30%, ${outerLight} 38%, ${outerMid} 46%, ${outerDark} 52%, ${outerLight} 60%, ${outerMid} 68%, ${outerLight} 76%, ${outerDark} 84%, ${outerLight} 92%, ${outerDark} 100%)`;
+    const angle = style.grainAngle + 90;
+
+    if (style.grainDensity === "coarse") {
+      style.outerGradient = `linear-gradient(${angle}deg, ${outerDark} 0%, ${outerLight} 12%, ${outerMid} 24%, ${outerDark} 36%, ${outerLight} 48%, ${outerMid} 58%, ${outerDark} 68%, ${outerLight} 80%, ${outerMid} 90%, ${outerDark} 100%)`;
+    } else if (style.grainDensity === "fine") {
+      style.outerGradient = `linear-gradient(${angle}deg, ${outerDark} 0%, ${outerMid} 6%, ${outerLight} 12%, ${outerMid} 18%, ${outerDark} 24%, ${outerLight} 30%, ${outerMid} 36%, ${outerDark} 42%, ${outerLight} 48%, ${outerMid} 54%, ${outerDark} 60%, ${outerLight} 66%, ${outerMid} 72%, ${outerDark} 78%, ${outerLight} 84%, ${outerDark} 100%)`;
+    } else {
+      style.outerGradient = `linear-gradient(${angle}deg, ${outerDark} 0%, ${outerLight} 8%, ${outerMid} 16%, ${outerLight} 22%, ${outerDark} 30%, ${outerLight} 38%, ${outerMid} 46%, ${outerDark} 52%, ${outerLight} 60%, ${outerMid} 68%, ${outerLight} 76%, ${outerDark} 84%, ${outerLight} 92%, ${outerDark} 100%)`;
+    }
   }
 
   return style;
@@ -1119,8 +1275,14 @@ function ImageCard({ image, index, theme, onClick, t, cardStyle }) {
 
   // Frame parameters (mobile: slimmer frames for compact 2-col layout)
   const frameStyle = generateFrameStyle(image.color, theme, index);
-  const fw = isMobile ? Math.max(3, Math.round((cs.frameWidth || 12) * 0.4)) : (cs.frameWidth || 12);
-  const fiw = isMobile ? Math.max(1, Math.round((cs.frameInnerWidth || 4) * 0.4)) : (cs.frameInnerWidth || 4);
+  const fwMultiplier = frameStyle.frameWidthMultiplier || 1;
+  const fiwMultiplier = frameStyle.matWidthMultiplier || 1;
+  const fw = isMobile
+    ? Math.max(3, Math.round((cs.frameWidth || 12) * 0.4 * fwMultiplier))
+    : Math.round((cs.frameWidth || 12) * fwMultiplier);
+  const fiw = isMobile
+    ? Math.max(1, Math.round((cs.frameInnerWidth || 4) * 0.4 * fiwMultiplier))
+    : Math.round((cs.frameInnerWidth || 4) * fiwMultiplier);
   const gradAngle = cs.frameGradientAngle || 145;
 
   if (error) {
@@ -1128,7 +1290,7 @@ function ImageCard({ image, index, theme, onClick, t, cardStyle }) {
     const errStyle = generateFrameStyle(null, theme, index);
     return (
       <div
-        className={errStyle.hasWoodGrain ? "wood-grain" : ""}
+        className={errStyle.hasWoodGrain ? `wood-grain-${errStyle.grainDensity || "medium"}` : ""}
         style={{
           padding: fw,
           background: errStyle.outerGradient || `linear-gradient(${gradAngle}deg, ${errStyle.outerDark} 0%, ${errStyle.outerLight} 15%, ${errStyle.outerMid} 30%, ${errStyle.outerLight} 45%, ${errStyle.outerDark} 55%, ${errStyle.outerMid} 70%, ${errStyle.outerLight} 85%, ${errStyle.outerDark} 100%)`,
@@ -1201,7 +1363,7 @@ function ImageCard({ image, index, theme, onClick, t, cardStyle }) {
   return (
     /* Outer Frame — wood/metal texture via multi-stop gradient */
     <div
-      className={frameStyle.hasWoodGrain ? "wood-grain" : ""}
+      className={frameStyle.hasWoodGrain ? `wood-grain-${frameStyle.grainDensity || "medium"}` : ""}
       style={{
         padding: fw,
         background: frameStyle.outerGradient || `linear-gradient(${gradAngle}deg, ${frameStyle.outerDark} 0%, ${frameStyle.outerLight} 15%, ${frameStyle.outerMid} 30%, ${frameStyle.outerLight} 45%, ${frameStyle.outerDark} 55%, ${frameStyle.outerMid} 70%, ${frameStyle.outerLight} 85%, ${frameStyle.outerDark} 100%)`,
