@@ -505,9 +505,11 @@ function GlobalStyles({ theme }) {
 
 // --- Background layers (immersive image-based background) ---
 function ImmersiveBackground({ bgImages, theme }) {
-  // bgImages: array of image URLs for the blurred collage
-  // Only render when there are images (search results displayed)
   if (!bgImages || bgImages.length === 0) return null;
+
+  const isMobile = typeof window !== "undefined" && window.innerWidth < 640;
+  // Limit background images on mobile for performance
+  const displayBgImages = isMobile ? bgImages.slice(0, 3) : bgImages;
 
   // Deterministic but varied positions for each image
   const positions = [
@@ -521,8 +523,7 @@ function ImmersiveBackground({ bgImages, theme }) {
 
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 0, pointerEvents: "none", overflow: "hidden" }}>
-      {/* Layer 1: Blurred image collage */}
-      {bgImages.map((url, i) => (
+      {displayBgImages.map((url, i) => (
         <img
           key={`bg-${i}`}
           src={url}
@@ -574,6 +575,13 @@ function Header({ theme, query, onSearch, onReset, lang, onToggleLang, t, layout
   const [input, setInput] = useState("");
   const [focused, setFocused] = useState(false);
   const inputRef = useRef(null);
+  const [isMobile, setIsMobile] = useState(typeof window !== "undefined" && window.innerWidth < 640);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 640);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   useEffect(() => {
     setInput(query);
@@ -593,6 +601,165 @@ function Header({ theme, query, onSearch, onReset, lang, onToggleLang, t, layout
     if (e.key === "Enter") triggerSearch();
   };
 
+  const logoElement = (
+    <div
+      onClick={() => onReset()}
+      style={{
+        cursor: "pointer",
+        display: "flex",
+        alignItems: "center",
+        gap: 6,
+        flexShrink: 0,
+        userSelect: "none",
+      }}
+    >
+      <span
+        style={{
+          fontFamily: theme.font,
+          fontSize: isMobile ? 18 : 22,
+          fontWeight: 700,
+          color: "#fff",
+          background: "linear-gradient(135deg, #ffffff, rgba(255,255,255,0.7))",
+          WebkitBackgroundClip: "text",
+          WebkitTextFillColor: "transparent",
+          backgroundClip: "text",
+          filter: `drop-shadow(0 0 8px ${theme.glow})`,
+          transition: "font-family 0.8s ease, filter 0.8s ease",
+          letterSpacing: 0.5,
+        }}
+      >
+        Visushift
+      </span>
+    </div>
+  );
+
+  const controlsElement = (
+    <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+      <button
+        type="button"
+        onClick={onToggleSource}
+        style={{
+          padding: isMobile ? "5px 8px" : "6px 12px",
+          borderRadius: 8,
+          border: `1px solid ${theme.border}`,
+          background: "rgba(255,255,255,0.07)",
+          color: theme.subtext,
+          fontSize: isMobile ? 10 : 11,
+          fontWeight: 600,
+          cursor: "pointer",
+          transition: "all 0.3s cubic-bezier(0.23, 1, 0.32, 1)",
+          display: "flex",
+          alignItems: "center",
+          gap: 3,
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.borderColor = theme.accent;
+          e.currentTarget.style.color = theme.text;
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.borderColor = theme.border;
+          e.currentTarget.style.color = theme.subtext;
+        }}
+      >
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+          <circle cx="12" cy="13" r="4" />
+        </svg>
+        {imageSource === "unsplash" ? "Unsplash" : "Pixabay"}
+      </button>
+
+      <button
+        type="button"
+        onClick={onToggleLang}
+        style={{
+          padding: isMobile ? "5px 8px" : "6px 12px",
+          borderRadius: 8,
+          border: `1px solid ${theme.border}`,
+          background: "rgba(255,255,255,0.07)",
+          color: theme.subtext,
+          fontSize: isMobile ? 10 : 12,
+          fontWeight: 600,
+          cursor: "pointer",
+          transition: "all 0.3s cubic-bezier(0.23, 1, 0.32, 1)",
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.borderColor = theme.accent;
+          e.currentTarget.style.color = theme.text;
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.borderColor = theme.border;
+          e.currentTarget.style.color = theme.subtext;
+        }}
+      >
+        {lang === "en" ? "日本語" : "EN"}
+      </button>
+
+      <div
+        style={{
+          width: 8,
+          height: 8,
+          borderRadius: "50%",
+          background: theme.accent,
+          boxShadow: `0 0 6px ${theme.glow}`,
+          transition: "all 0.8s ease",
+          flexShrink: 0,
+        }}
+      />
+    </div>
+  );
+
+  const searchBarElement = (
+    <div style={{
+      display: "flex",
+      gap: 8,
+      ...(isMobile ? { width: "100%" } : { flex: 1, maxWidth: 560 }),
+    }}>
+      <div style={{ flex: 1, position: "relative" }}>
+        <input
+          ref={inputRef}
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={handleKeyDown}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          placeholder={t.searchPlaceholder}
+          style={{
+            width: "100%",
+            padding: isMobile ? "10px 12px" : "10px 16px",
+            borderRadius: 12,
+            border: `1px solid ${focused ? theme.accent : theme.border}`,
+            background: "rgba(255,255,255,0.07)",
+            color: theme.text,
+            fontSize: isMobile ? 14 : 15,
+            fontFamily: theme.bodyFont,
+            outline: "none",
+            transition: "all 0.3s cubic-bezier(0.23, 1, 0.32, 1)",
+            boxShadow: focused ? `0 0 20px ${theme.glow}, 0 0 40px ${theme.glow}` : "none",
+          }}
+        />
+      </div>
+      <button
+        type="button"
+        onClick={triggerSearch}
+        style={{
+          padding: isMobile ? "10px 16px" : "10px 20px",
+          borderRadius: 12,
+          border: "none",
+          background: `linear-gradient(135deg, ${theme.primary}, ${theme.secondary})`,
+          color: "#fff",
+          fontFamily: theme.bodyFont,
+          fontSize: 14,
+          fontWeight: 600,
+          cursor: "pointer",
+          transition: "all 0.3s cubic-bezier(0.23, 1, 0.32, 1)",
+          flexShrink: 0,
+        }}
+      >
+        {t.searchButton}
+      </button>
+    </div>
+  );
+
   return (
     <header
       style={{
@@ -603,177 +770,38 @@ function Header({ theme, query, onSearch, onReset, lang, onToggleLang, t, layout
         WebkitBackdropFilter: "blur(30px)",
         background: "rgba(0,0,0,0.55)",
         borderBottom: `1px solid ${theme.border}`,
-        padding: "12px 24px",
+        padding: isMobile ? "10px 12px" : "12px 24px",
         display: "flex",
-        alignItems: "center",
+        flexDirection: isMobile ? "column" : "row",
+        alignItems: isMobile ? "stretch" : "center",
         justifyContent: "space-between",
-        gap: 16,
+        gap: isMobile ? 8 : 16,
         transition: "border-color 0.8s ease",
       }}
     >
-      <div
-        onClick={() => onReset()}
-        style={{
-          cursor: "pointer",
-          display: "flex",
-          alignItems: "center",
-          gap: 8,
-          flexShrink: 0,
-          userSelect: "none",
-        }}
-      >
-        <span
-          style={{
-            fontFamily: theme.font,
-            fontSize: 22,
-            fontWeight: 700,
-            color: "#fff",
-            background: "linear-gradient(135deg, #ffffff, rgba(255,255,255,0.7))",
-            WebkitBackgroundClip: "text",
-            WebkitTextFillColor: "transparent",
-            backgroundClip: "text",
-            filter: `drop-shadow(0 0 8px ${theme.glow})`,
-            transition: "font-family 0.8s ease, filter 0.8s ease",
-            letterSpacing: 0.5,
-          }}
-        >
-          Visushift
-        </span>
-      </div>
-
-      <div style={{ flex: 1, maxWidth: 560, display: "flex", gap: 8 }}>
-        <div style={{ flex: 1, position: "relative" }}>
-          <input
-            ref={inputRef}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            onFocus={() => setFocused(true)}
-            onBlur={() => setFocused(false)}
-            placeholder={t.searchPlaceholder}
-            style={{
-              width: "100%",
-              padding: "10px 16px",
-              borderRadius: 12,
-              border: `1px solid ${focused ? theme.accent : theme.border}`,
-              background: "rgba(255,255,255,0.07)",
-              color: theme.text,
-              fontSize: 15,
-              fontFamily: theme.bodyFont,
-              outline: "none",
-              transition: "all 0.3s cubic-bezier(0.23, 1, 0.32, 1)",
-              boxShadow: focused ? `0 0 20px ${theme.glow}, 0 0 40px ${theme.glow}` : "none",
-            }}
-          />
-        </div>
-        <button
-          type="button"
-          onClick={triggerSearch}
-          style={{
-            padding: "10px 20px",
-            borderRadius: 12,
-            border: "none",
-            background: `linear-gradient(135deg, ${theme.primary}, ${theme.secondary})`,
-            color: "#fff",
-            fontFamily: theme.bodyFont,
-            fontSize: 14,
-            fontWeight: 600,
-            cursor: "pointer",
-            transition: "all 0.3s cubic-bezier(0.23, 1, 0.32, 1)",
-            flexShrink: 0,
-          }}
-        >
-          {t.searchButton}
-        </button>
-      </div>
-
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 12,
-          flexShrink: 0,
-        }}
-      >
-        <button
-          type="button"
-          onClick={onToggleLang}
-          style={{
-            padding: "6px 12px",
-            borderRadius: 8,
-            border: `1px solid ${theme.border}`,
-            background: "rgba(255,255,255,0.07)",
-            color: theme.subtext,
-            fontSize: 12,
-            fontWeight: 600,
-            cursor: "pointer",
-            transition: "all 0.3s cubic-bezier(0.23, 1, 0.32, 1)",
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.borderColor = theme.accent;
-            e.currentTarget.style.color = theme.text;
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.borderColor = theme.border;
-            e.currentTarget.style.color = theme.subtext;
-          }}
-        >
-          {lang === "en" ? "日本語" : "EN"}
-        </button>
-        <button
-          type="button"
-          onClick={onToggleSource}
-          style={{
-            padding: "6px 12px",
-            borderRadius: 8,
-            border: `1px solid ${theme.border}`,
-            background: "rgba(255,255,255,0.07)",
-            color: theme.subtext,
-            fontSize: 11,
-            fontWeight: 600,
-            cursor: "pointer",
-            transition: "all 0.3s cubic-bezier(0.23, 1, 0.32, 1)",
-            display: "flex",
-            alignItems: "center",
-            gap: 4,
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.borderColor = theme.accent;
-            e.currentTarget.style.color = theme.text;
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.borderColor = theme.border;
-            e.currentTarget.style.color = theme.subtext;
-          }}
-        >
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-            <circle cx="12" cy="13" r="4" />
-          </svg>
-          {imageSource === "unsplash" ? "Unsplash" : "Pixabay"}
-        </button>
-        <div
-          style={{
-            width: 10,
-            height: 10,
-            borderRadius: "50%",
-            background: theme.accent,
-            boxShadow: `0 0 8px ${theme.glow}`,
-            transition: "all 0.8s ease",
-          }}
-        />
-        {/* Layout mode indicator (uncomment for debugging)
-        <span style={{ fontSize: 10, color: theme.subtext, opacity: 0.5 }}>
-          {layoutMode.name}
-        </span>
-        */}
-      </div>
+      {isMobile ? (
+        <>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            {logoElement}
+            {controlsElement}
+          </div>
+          {searchBarElement}
+        </>
+      ) : (
+        <>
+          {logoElement}
+          {searchBarElement}
+          {controlsElement}
+        </>
+      )}
     </header>
   );
 }
 
 // --- Landing page ---
 function Landing({ theme, onSearch, history, lang, t }) {
+  const isMobile = typeof window !== "undefined" && window.innerWidth < 640;
+
   return (
     <div
       style={{
@@ -782,34 +810,35 @@ function Landing({ theme, onSearch, history, lang, t }) {
         alignItems: "center",
         justifyContent: "center",
         minHeight: "calc(100vh - 64px)",
-        padding: "60px 24px",
+        padding: isMobile ? "40px 16px" : "60px 24px",
         position: "relative",
         zIndex: 1,
       }}
     >
       <div
         style={{
-          width: 80,
-          height: 80,
+          width: isMobile ? 56 : 80,
+          height: isMobile ? 56 : 80,
           borderRadius: "50%",
           background: `linear-gradient(135deg, ${theme.accent}, ${theme.secondary})`,
           opacity: 0.7,
           animation: "float 3s ease-in-out infinite",
-          marginBottom: 24,
+          marginBottom: isMobile ? 16 : 24,
           filter: "blur(1px)",
         }}
       />
       <h1
         style={{
           fontFamily: theme.font,
-          fontSize: "clamp(32px, 5vw, 56px)",
+          fontSize: isMobile ? "clamp(24px, 7vw, 36px)" : "clamp(32px, 5vw, 56px)",
           fontWeight: 700,
-          marginBottom: 12,
+          marginBottom: isMobile ? 8 : 12,
           background: `linear-gradient(135deg, ${theme.accent}, ${theme.secondary}, ${theme.primary})`,
           WebkitBackgroundClip: "text",
           WebkitTextFillColor: "transparent",
           textAlign: "center",
           transition: "all 0.8s ease",
+          padding: "0 8px",
         }}
       >
         {t.heroTitle}
@@ -817,13 +846,14 @@ function Landing({ theme, onSearch, history, lang, t }) {
       <p
         style={{
           fontFamily: theme.bodyFont,
-          fontSize: 17,
+          fontSize: isMobile ? 14 : 17,
           color: theme.subtext,
-          marginBottom: 40,
+          marginBottom: isMobile ? 28 : 40,
           textAlign: "center",
-          maxWidth: 480,
+          maxWidth: isMobile ? 320 : 480,
           lineHeight: 1.6,
           transition: "color 0.8s ease",
+          padding: "0 8px",
         }}
       >
         {t.heroSubtitle}
@@ -833,10 +863,10 @@ function Landing({ theme, onSearch, history, lang, t }) {
         style={{
           display: "flex",
           flexWrap: "wrap",
-          gap: 10,
+          gap: isMobile ? 8 : 10,
           justifyContent: "center",
-          maxWidth: 600,
-          marginBottom: 40,
+          maxWidth: isMobile ? 340 : 600,
+          marginBottom: isMobile ? 28 : 40,
         }}
       >
         {SUGGEST_CHIPS[lang].map((chip, i) => (
@@ -844,13 +874,13 @@ function Landing({ theme, onSearch, history, lang, t }) {
             key={SUGGEST_CHIPS.en[i]}
             onClick={() => onSearch(SUGGEST_CHIPS.en[i])}
             style={{
-              padding: "8px 20px",
+              padding: isMobile ? "7px 14px" : "8px 20px",
               borderRadius: 20,
               border: `1px solid ${theme.border}`,
               background: "rgba(255,255,255,0.06)",
               color: theme.text,
               fontFamily: theme.bodyFont,
-              fontSize: 14,
+              fontSize: isMobile ? 13 : 14,
               cursor: "pointer",
               transition: "all 0.3s cubic-bezier(0.23, 1, 0.32, 1)",
               backdropFilter: "blur(10px)",
@@ -874,31 +904,31 @@ function Landing({ theme, onSearch, history, lang, t }) {
       </div>
 
       {history.length > 0 && (
-        <div style={{ textAlign: "center" }}>
+        <div style={{ textAlign: "center", padding: "0 8px" }}>
           <p
             style={{
-              fontSize: 13,
+              fontSize: isMobile ? 11 : 13,
               color: theme.subtext,
-              marginBottom: 12,
+              marginBottom: isMobile ? 8 : 12,
               fontFamily: theme.bodyFont,
               opacity: 0.7,
             }}
           >
             {t.recentSearches}
           </p>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center" }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, justifyContent: "center" }}>
             {history.map((item, i) => (
               <button
                 key={`${item}-${i}`}
                 onClick={() => onSearch(item)}
                 style={{
-                  padding: "6px 14px",
+                  padding: isMobile ? "5px 10px" : "6px 14px",
                   borderRadius: 16,
                   border: `1px solid ${theme.border}`,
                   background: "rgba(255,255,255,0.03)",
                   color: theme.subtext,
                   fontFamily: theme.bodyFont,
-                  fontSize: 12,
+                  fontSize: isMobile ? 11 : 12,
                   cursor: "pointer",
                   transition: "all 0.3s cubic-bezier(0.23, 1, 0.32, 1)",
                 }}
@@ -1015,7 +1045,7 @@ function ImageCard({ image, index, theme, onClick, t, cardStyle }) {
   // Card style defaults
   const cs = cardStyle || { borderRadius: 16, rotation: 0, scale: 1, paddingBottom: 0, marginTop: 0, marginLeft: 0, frameWidth: 12, frameInnerWidth: 4, frameBevel: true, frameGradientAngle: 145 };
   const isMobile = typeof window !== "undefined" && window.innerWidth < 480;
-  const effectiveRotation = isMobile ? 0 : cs.rotation;
+  const effectiveRotation = isMobile ? (cs.rotation || 0) * 0.5 : (cs.rotation || 0);
 
   // Determine per-card glow color from image.color (Unsplash HEX) or fallback
   const cardGlow = (() => {
@@ -1026,10 +1056,10 @@ function ImageCard({ image, index, theme, onClick, t, cardStyle }) {
     return theme.glow;
   })();
 
-  // Frame parameters (mobile: reduce frame width)
+  // Frame parameters (mobile: slimmer frames for compact 2-col layout)
   const frameStyle = generateFrameStyle(image.color, theme, index);
-  const fw = isMobile ? Math.max(5, Math.round((cs.frameWidth || 12) * 0.6)) : (cs.frameWidth || 12);
-  const fiw = isMobile ? Math.max(2, Math.round((cs.frameInnerWidth || 4) * 0.6)) : (cs.frameInnerWidth || 4);
+  const fw = isMobile ? Math.max(3, Math.round((cs.frameWidth || 12) * 0.4)) : (cs.frameWidth || 12);
+  const fiw = isMobile ? Math.max(1, Math.round((cs.frameInnerWidth || 4) * 0.4)) : (cs.frameInnerWidth || 4);
   const gradAngle = cs.frameGradientAngle || 145;
 
   if (error) {
@@ -1142,29 +1172,29 @@ function ImageCard({ image, index, theme, onClick, t, cardStyle }) {
                 style={{
                   width: "100%",
                   display: "block",
-                  maxHeight: isMobile ? "none" : 320,
+                  maxHeight: isMobile ? 180 : 320,
                   objectFit: "cover",
                   filter: hovered ? "brightness(1.1)" : "brightness(1)",
                   transition: "filter 0.4s ease",
                 }}
               />
 
-              {/* Hover overlay (title, source) */}
+              {/* Hover overlay (title, source) — always visible on mobile */}
               <div
                 style={{
                   position: "absolute",
                   bottom: 0,
                   left: 0,
                   right: 0,
-                  padding: "40px 12px 12px",
+                  padding: isMobile ? "20px 8px 8px" : "40px 12px 12px",
                   background: "linear-gradient(transparent, rgba(0,0,0,0.8))",
-                  opacity: hovered ? 1 : 0,
+                  opacity: isMobile ? 0.7 : (hovered ? 1 : 0),
                   transition: "opacity 0.3s ease",
                 }}
               >
                 <p
                   style={{
-                    fontSize: 13,
+                    fontSize: isMobile ? 10 : 13,
                     fontWeight: 600,
                     fontFamily: theme.bodyFont,
                     color: "#fff",
@@ -1176,12 +1206,12 @@ function ImageCard({ image, index, theme, onClick, t, cardStyle }) {
                 >
                   {image.title}
                 </p>
-                <p style={{ fontSize: 11, color: "rgba(255,255,255,0.7)", fontFamily: theme.bodyFont }}>
+                <p style={{ fontSize: isMobile ? 9 : 11, color: "rgba(255,255,255,0.7)", fontFamily: theme.bodyFont }}>
                   {image.source}
                 </p>
               </div>
 
-              {/* Save button */}
+              {/* Save button — always visible on mobile */}
               <button
                 onClick={(e) => {
                   e.stopPropagation();
@@ -1191,12 +1221,12 @@ function ImageCard({ image, index, theme, onClick, t, cardStyle }) {
                   position: "absolute",
                   top: 8,
                   right: 8,
-                  padding: "4px 10px",
+                  padding: isMobile ? "3px 7px" : "4px 10px",
                   borderRadius: 8,
                   border: "none",
                   background: saved ? theme.primary : "rgba(0,0,0,0.5)",
                   color: "#fff",
-                  fontSize: 11,
+                  fontSize: isMobile ? 9 : 11,
                   fontFamily: theme.bodyFont,
                   fontWeight: 600,
                   cursor: "pointer",
@@ -1204,7 +1234,7 @@ function ImageCard({ image, index, theme, onClick, t, cardStyle }) {
                   alignItems: "center",
                   justifyContent: "center",
                   gap: 4,
-                  opacity: hovered ? 1 : 0,
+                  opacity: isMobile ? 0.8 : (hovered ? 1 : 0),
                   transition: "all 0.3s cubic-bezier(0.23, 1, 0.32, 1)",
                   backdropFilter: "blur(10px)",
                   letterSpacing: 0.3,
@@ -1234,15 +1264,19 @@ function ImageCard({ image, index, theme, onClick, t, cardStyle }) {
 
 // --- Search results header ---
 function SearchResultsHeader({ query, count, theme, t }) {
+  const isMobile = typeof window !== "undefined" && window.innerWidth < 640;
+
   return (
     <div
       style={{
         display: "flex",
         justifyContent: "space-between",
-        alignItems: "baseline",
-        padding: "16px 24px",
+        alignItems: isMobile ? "flex-start" : "baseline",
+        flexDirection: isMobile ? "column" : "row",
+        gap: isMobile ? 4 : 0,
+        padding: isMobile ? "12px 16px" : "16px 24px",
         maxWidth: "100%",
-        margin: "24px 64px 0",
+        margin: isMobile ? "16px 12px 0" : "24px 64px 0",
         position: "relative",
         zIndex: 1,
         background: "rgba(0, 0, 0, 0.15)",
@@ -1254,10 +1288,11 @@ function SearchResultsHeader({ query, count, theme, t }) {
       <h2
         style={{
           fontFamily: theme.font,
-          fontSize: 24,
+          fontSize: isMobile ? 18 : 24,
           fontWeight: 700,
           color: theme.text,
           transition: "color 0.8s ease",
+          wordBreak: "break-word",
         }}
       >
         {query}
@@ -1265,7 +1300,7 @@ function SearchResultsHeader({ query, count, theme, t }) {
       <span
         style={{
           fontFamily: theme.bodyFont,
-          fontSize: 13,
+          fontSize: isMobile ? 11 : 13,
           color: theme.subtext,
           flexShrink: 0,
           transition: "color 0.8s ease",
@@ -1277,17 +1312,14 @@ function SearchResultsHeader({ query, count, theme, t }) {
   );
 }
 
-// --- Scatter layout: cards positioned freely like photos on a wall ---
+// --- Scatter layout: cards positioned freely like photos on a gallery wall ---
 function ScatterLayout({ images, theme, onImageClick, t, cardStyles }) {
   const containerRef = useRef(null);
   const [positions, setPositions] = useState([]);
   const isMobile = typeof window !== "undefined" && window.innerWidth < 480;
   const isTablet = typeof window !== "undefined" && window.innerWidth >= 480 && window.innerWidth < 768;
 
-  // Card size (smaller on PC for more background visibility)
-  const cardWidth = isMobile ? 300 : isTablet ? 260 : 300;
-
-  // Limit displayed images (scatter doesn't need all 20)
+  // Limit displayed images
   const displayCount = isMobile ? 8 : isTablet ? 12 : 16;
   const displayImages = images.slice(0, displayCount);
 
@@ -1296,37 +1328,40 @@ function ScatterLayout({ images, theme, onImageClick, t, cardStyles }) {
       const containerWidth = window.innerWidth;
       const mobile = containerWidth < 480;
       const tablet = containerWidth >= 480 && containerWidth < 768;
-      const cols = mobile ? 1 : tablet ? 2 : 4;
 
-      // Cell size = card width + minimum padding to guarantee no overlap
-      const minPadding = 40;
+      // Mobile: 2 columns (gallery wall feel)
+      const cols = mobile ? 2 : tablet ? 2 : 4;
+
+      // Card size: compact on mobile for 2-col scatter
+      const mobileCardWidth = Math.floor((containerWidth - 48) / 2);
+      const currentCardWidth = mobile ? Math.min(mobileCardWidth, 170) : tablet ? 260 : 300;
+
+      const minPadding = mobile ? 12 : 40;
       const cellWidth = containerWidth / cols;
-      const cardHeight = 340;
-      const cellHeight = cardHeight + minPadding + 60;
+      const cardHeight = mobile ? 200 : 340;
+      const cellHeight = cardHeight + minPadding + (mobile ? 30 : 60);
 
-      // Max offset within cell (stays inside cell boundaries)
-      const maxOffsetX = Math.max(0, (cellWidth - cardWidth - minPadding) / 2);
-      const maxOffsetY = Math.max(0, 30);
+      const maxOffsetX = Math.max(0, (cellWidth - currentCardWidth - minPadding) / 2);
+      const maxOffsetY = mobile ? 15 : 30;
 
       const newPositions = displayImages.map((_, i) => {
         const col = i % cols;
         const row = Math.floor(i / cols);
 
-        // Cell top-left
         const cellX = col * cellWidth;
         const cellY = row * cellHeight;
 
-        // Center card within cell
-        const centerX = cellX + (cellWidth - cardWidth) / 2;
+        const centerX = cellX + (cellWidth - currentCardWidth) / 2;
         const centerY = cellY + minPadding / 2;
 
-        // Random offset within cell (never exceeds cell bounds)
-        const offsetX = mobile ? 0 : Math.sin((_globalSeed + i * 3571) * 0.0001) * maxOffsetX;
-        const offsetY = mobile ? 0 : Math.cos((_globalSeed + i * 7919) * 0.0001) * maxOffsetY;
+        // Random offset for scatter feel (even on mobile)
+        const offsetX = Math.sin((_globalSeed + i * 3571) * 0.0001) * maxOffsetX;
+        const offsetY = Math.cos((_globalSeed + i * 7919) * 0.0001) * maxOffsetY;
 
         return {
-          x: Math.max(8, Math.min(containerWidth - cardWidth - 8, centerX + offsetX)),
+          x: Math.max(4, Math.min(containerWidth - currentCardWidth - 4, centerX + offsetX)),
           y: Math.max(0, centerY + offsetY),
+          width: currentCardWidth,
         };
       });
 
@@ -1336,40 +1371,12 @@ function ScatterLayout({ images, theme, onImageClick, t, cardStyles }) {
     calculatePositions();
     window.addEventListener("resize", calculatePositions);
     return () => window.removeEventListener("resize", calculatePositions);
-  }, [displayImages.length, cardWidth]);
+  }, [displayImages.length]);
 
   // Calculate container height from card positions
   const containerHeight = positions.length > 0
-    ? Math.max(...positions.map(p => p.y)) + 450
+    ? Math.max(...positions.map(p => p.y)) + (isMobile ? 280 : 450)
     : 800;
-
-  // Mobile: simple vertical flow with generous gap
-  if (isMobile) {
-    return (
-      <div style={{
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        gap: 32,
-        padding: "24px 16px 80px",
-        position: "relative",
-        zIndex: 1,
-      }}>
-        {displayImages.map((img, i) => (
-          <div key={img.id} style={{ width: "100%", maxWidth: 340 }}>
-            <ImageCard
-              image={img}
-              index={i}
-              theme={theme}
-              onClick={onImageClick}
-              t={t}
-              cardStyle={cardStyles[i] || null}
-            />
-          </div>
-        ))}
-      </div>
-    );
-  }
 
   return (
     <div
@@ -1379,7 +1386,7 @@ function ScatterLayout({ images, theme, onImageClick, t, cardStyles }) {
         width: "100%",
         minHeight: containerHeight,
         zIndex: 1,
-        padding: "20px 0",
+        padding: isMobile ? "12px 0" : "20px 0",
       }}
     >
       {displayImages.map((img, i) => {
@@ -1392,7 +1399,7 @@ function ScatterLayout({ images, theme, onImageClick, t, cardStyles }) {
               position: "absolute",
               left: pos.x,
               top: pos.y,
-              width: cardWidth,
+              width: pos.width || 300,
               transition: "left 0.6s cubic-bezier(0.23, 1, 0.32, 1), top 0.6s cubic-bezier(0.23, 1, 0.32, 1)",
             }}
           >
@@ -1413,6 +1420,8 @@ function ScatterLayout({ images, theme, onImageClick, t, cardStyles }) {
 
 // --- Lightbox ---
 function Lightbox({ image, theme, onClose }) {
+  const isMobile = typeof window !== "undefined" && window.innerWidth < 640;
+
   useEffect(() => {
     if (!image) return;
     const handleKeyDown = (e) => {
@@ -1437,7 +1446,7 @@ function Lightbox({ image, theme, onClose }) {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        padding: 40,
+        padding: isMobile ? 16 : 40,
         animation: "fadeSlideUp 0.3s ease",
       }}
     >
@@ -1445,10 +1454,10 @@ function Lightbox({ image, theme, onClose }) {
         onClick={onClose}
         style={{
           position: "absolute",
-          top: 20,
-          right: 24,
-          width: 40,
-          height: 40,
+          top: isMobile ? 12 : 20,
+          right: isMobile ? 12 : 24,
+          width: isMobile ? 36 : 40,
+          height: isMobile ? 36 : 40,
           borderRadius: 10,
           border: `1px solid ${theme.border}`,
           background: "rgba(255,255,255,0.1)",
@@ -1469,9 +1478,9 @@ function Lightbox({ image, theme, onClose }) {
         alt={image.title}
         onClick={(e) => e.stopPropagation()}
         style={{
-          maxWidth: "90vw",
-          maxHeight: "85vh",
-          borderRadius: 16,
+          maxWidth: isMobile ? "95vw" : "90vw",
+          maxHeight: isMobile ? "75vh" : "85vh",
+          borderRadius: isMobile ? 8 : 16,
           boxShadow: `0 0 60px ${theme.glow}, 0 0 120px ${theme.glow}`,
           objectFit: "contain",
         }}
@@ -1480,7 +1489,7 @@ function Lightbox({ image, theme, onClose }) {
         onClick={(e) => e.stopPropagation()}
         style={{
           position: "absolute",
-          bottom: 30,
+          bottom: isMobile ? 16 : 30,
           textAlign: "center",
           fontFamily: theme.bodyFont,
         }}
