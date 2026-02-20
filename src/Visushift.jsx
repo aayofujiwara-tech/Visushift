@@ -498,6 +498,54 @@ function GlobalStyles({ theme }) {
           from { opacity: 0; }
           to { opacity: 0.75; }
         }
+        /* Wood grain overlay for frames */
+        .wood-grain {
+          position: relative;
+        }
+        .wood-grain::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          border-radius: inherit;
+          opacity: 0.12;
+          background: repeating-linear-gradient(
+            var(--grain-angle, 87deg),
+            transparent 0px,
+            transparent 2px,
+            rgba(0,0,0,0.08) 2px,
+            rgba(0,0,0,0.08) 3px,
+            transparent 3px,
+            transparent 7px,
+            rgba(0,0,0,0.05) 7px,
+            rgba(0,0,0,0.05) 8px,
+            transparent 8px,
+            transparent 14px,
+            rgba(0,0,0,0.03) 14px,
+            rgba(0,0,0,0.03) 15px
+          );
+          pointer-events: none;
+          z-index: 1;
+        }
+        .wood-grain::after {
+          content: '';
+          position: absolute;
+          inset: 0;
+          border-radius: inherit;
+          opacity: 0.06;
+          background: repeating-linear-gradient(
+            calc(var(--grain-angle, 87deg) + 3deg),
+            transparent 0px,
+            transparent 5px,
+            rgba(60,30,10,0.1) 5px,
+            rgba(60,30,10,0.1) 6px,
+            transparent 6px,
+            transparent 18px,
+            rgba(80,40,15,0.06) 18px,
+            rgba(80,40,15,0.06) 19px
+          );
+          pointer-events: none;
+          z-index: 1;
+        }
       `}</style>
     </>
   );
@@ -990,6 +1038,8 @@ function generateFrameStyle(imageColor, theme, index) {
       matColor: `rgb(${Math.min(255, Math.round(baseColor.r * 0.15 + 225))}, ${Math.min(255, Math.round(baseColor.g * 0.12 + 220))}, ${Math.min(255, Math.round(baseColor.b * 0.1 + 215))})`,
       innerEdge: `rgba(${Math.min(255, Math.round(baseColor.r * 0.3 + 150))}, ${Math.min(255, Math.round(baseColor.g * 0.25 + 130))}, ${Math.min(255, Math.round(baseColor.b * 0.1 + 60))}, 0.6)`,
       shadowColor: "rgba(20, 10, 5, 0.6)",
+      hasWoodGrain: true,
+      grainAngle: 85 + (index % 7) * 2,
     },
     lightWood: {
       outerLight: `rgb(${Math.min(255, Math.round(baseColor.r * 0.2 + 190))}, ${Math.min(255, Math.round(baseColor.g * 0.2 + 165))}, ${Math.min(255, Math.round(baseColor.b * 0.1 + 120))})`,
@@ -999,6 +1049,8 @@ function generateFrameStyle(imageColor, theme, index) {
       matColor: "rgb(250, 247, 242)",
       innerEdge: "rgba(200, 175, 120, 0.5)",
       shadowColor: "rgba(60, 40, 20, 0.4)",
+      hasWoodGrain: true,
+      grainAngle: 83 + (index % 9) * 2,
     },
     gold: {
       outerLight: `rgb(${Math.min(255, Math.round(baseColor.r * 0.2 + 210))}, ${Math.min(255, Math.round(baseColor.g * 0.2 + 185))}, ${Math.min(255, Math.round(baseColor.b * 0.05 + 90))})`,
@@ -1008,6 +1060,7 @@ function generateFrameStyle(imageColor, theme, index) {
       matColor: `rgb(${Math.min(255, Math.round(baseColor.r * 0.1 + 240))}, ${Math.min(255, Math.round(baseColor.g * 0.1 + 235))}, ${Math.min(255, Math.round(baseColor.b * 0.1 + 225))})`,
       innerEdge: "rgba(220, 195, 100, 0.7)",
       shadowColor: "rgba(80, 55, 10, 0.5)",
+      hasWoodGrain: false,
     },
     silver: {
       outerLight: `rgb(${Math.min(255, Math.round(baseColor.r * 0.1 + 200))}, ${Math.min(255, Math.round(baseColor.g * 0.1 + 205))}, ${Math.min(255, Math.round(baseColor.b * 0.15 + 215))})`,
@@ -1017,6 +1070,7 @@ function generateFrameStyle(imageColor, theme, index) {
       matColor: "rgb(248, 248, 252)",
       innerEdge: "rgba(180, 185, 200, 0.5)",
       shadowColor: "rgba(40, 45, 55, 0.4)",
+      hasWoodGrain: false,
     },
     white: {
       outerLight: "rgb(252, 250, 248)",
@@ -1026,13 +1080,20 @@ function generateFrameStyle(imageColor, theme, index) {
       matColor: "rgb(255, 255, 253)",
       innerEdge: "rgba(200, 200, 200, 0.3)",
       shadowColor: "rgba(0, 0, 0, 0.25)",
+      hasWoodGrain: false,
     },
   };
 
-  return {
-    ...FRAME_STYLES[frameType],
-    frameType,
-  };
+  const style = { ...FRAME_STYLES[frameType], frameType };
+
+  // Generate enhanced gradient for wood frames (more stops = richer texture)
+  if (frameType === "darkWood" || frameType === "lightWood") {
+    const { outerLight, outerDark, outerMid } = style;
+    const angle = style.grainAngle || 90;
+    style.outerGradient = `linear-gradient(${angle + 90}deg, ${outerDark} 0%, ${outerLight} 8%, ${outerMid} 16%, ${outerLight} 22%, ${outerDark} 30%, ${outerLight} 38%, ${outerMid} 46%, ${outerDark} 52%, ${outerLight} 60%, ${outerMid} 68%, ${outerLight} 76%, ${outerDark} 84%, ${outerLight} 92%, ${outerDark} 100%)`;
+  }
+
+  return style;
 }
 
 // --- ImageCard with per-card color glow and realistic multi-layer frame ---
@@ -1067,18 +1128,38 @@ function ImageCard({ image, index, theme, onClick, t, cardStyle }) {
     const errStyle = generateFrameStyle(null, theme, index);
     return (
       <div
+        className={errStyle.hasWoodGrain ? "wood-grain" : ""}
         style={{
           padding: fw,
-          background: `linear-gradient(${gradAngle}deg, ${errStyle.outerDark} 0%, ${errStyle.outerLight} 15%, ${errStyle.outerMid} 30%, ${errStyle.outerLight} 45%, ${errStyle.outerDark} 55%, ${errStyle.outerMid} 70%, ${errStyle.outerLight} 85%, ${errStyle.outerDark} 100%)`,
+          background: errStyle.outerGradient || `linear-gradient(${gradAngle}deg, ${errStyle.outerDark} 0%, ${errStyle.outerLight} 15%, ${errStyle.outerMid} 30%, ${errStyle.outerLight} 45%, ${errStyle.outerDark} 55%, ${errStyle.outerMid} 70%, ${errStyle.outerLight} 85%, ${errStyle.outerDark} 100%)`,
           borderRadius: (cs.borderRadius || 16) + 4,
-          boxShadow: `inset 1px 1px 2px rgba(255,255,255,0.25), inset -1px -1px 2px rgba(0,0,0,0.25), inset 3px 3px 6px rgba(255,255,255,0.1), inset -3px -3px 6px rgba(0,0,0,0.15), 3px 4px 12px ${errStyle.shadowColor}, 6px 8px 24px ${errStyle.shadowColor}`,
+          position: "relative",
+          overflow: "hidden",
+          "--grain-angle": `${errStyle.grainAngle || 87}deg`,
+          boxShadow: errStyle.hasWoodGrain
+            ? `inset 2px 2px 4px rgba(255,255,255,0.3), inset -2px -2px 4px rgba(0,0,0,0.35), inset 4px 4px 8px rgba(255,255,255,0.1), inset -4px -4px 8px rgba(0,0,0,0.2), 4px 5px 15px ${errStyle.shadowColor}, 8px 10px 30px ${errStyle.shadowColor}`
+            : `inset 1px 1px 2px rgba(255,255,255,0.25), inset -1px -1px 2px rgba(0,0,0,0.25), inset 3px 3px 6px rgba(255,255,255,0.1), inset -3px -3px 6px rgba(0,0,0,0.15), 3px 4px 12px ${errStyle.shadowColor}, 6px 8px 24px ${errStyle.shadowColor}`,
           animation: `fadeSlideUp 0.5s cubic-bezier(0.23, 1, 0.32, 1) ${index * 60}ms both`,
         }}
       >
         {/* Inner Groove */}
-        <div style={{ padding: 2, background: errStyle.grooveColor, borderRadius: (cs.borderRadius || 16) + 1 }}>
+        <div style={{
+          padding: 2,
+          background: errStyle.grooveColor,
+          borderRadius: (cs.borderRadius || 16) + 1,
+          position: "relative",
+          zIndex: 2,
+          boxShadow: errStyle.hasWoodGrain ? "inset 1px 1px 2px rgba(0,0,0,0.3), inset -1px -1px 1px rgba(255,255,255,0.1)" : "none",
+        }}>
           {/* Mat */}
-          <div style={{ padding: fiw, background: errStyle.matColor, borderRadius: cs.borderRadius || 16, boxShadow: "inset 1px 1px 3px rgba(0,0,0,0.08), inset -1px -1px 3px rgba(255,255,255,0.5)" }}>
+          <div style={{
+            padding: fiw,
+            background: errStyle.matColor,
+            borderRadius: cs.borderRadius || 16,
+            boxShadow: errStyle.hasWoodGrain
+              ? "inset 2px 2px 6px rgba(0,0,0,0.12), inset -1px -1px 4px rgba(255,255,255,0.6), inset 0 0 12px rgba(0,0,0,0.04)"
+              : "inset 1px 1px 3px rgba(0,0,0,0.08), inset -1px -1px 3px rgba(255,255,255,0.5)",
+          }}>
             {/* Inner Edge */}
             <div style={{ padding: 1, background: errStyle.innerEdge, borderRadius: Math.max(0, (cs.borderRadius || 16) - 2) }}>
               <div
@@ -1120,11 +1201,17 @@ function ImageCard({ image, index, theme, onClick, t, cardStyle }) {
   return (
     /* Outer Frame — wood/metal texture via multi-stop gradient */
     <div
+      className={frameStyle.hasWoodGrain ? "wood-grain" : ""}
       style={{
         padding: fw,
-        background: `linear-gradient(${gradAngle}deg, ${frameStyle.outerDark} 0%, ${frameStyle.outerLight} 15%, ${frameStyle.outerMid} 30%, ${frameStyle.outerLight} 45%, ${frameStyle.outerDark} 55%, ${frameStyle.outerMid} 70%, ${frameStyle.outerLight} 85%, ${frameStyle.outerDark} 100%)`,
+        background: frameStyle.outerGradient || `linear-gradient(${gradAngle}deg, ${frameStyle.outerDark} 0%, ${frameStyle.outerLight} 15%, ${frameStyle.outerMid} 30%, ${frameStyle.outerLight} 45%, ${frameStyle.outerDark} 55%, ${frameStyle.outerMid} 70%, ${frameStyle.outerLight} 85%, ${frameStyle.outerDark} 100%)`,
         borderRadius: (cs.borderRadius || 16) + 4,
-        boxShadow: `inset 1px 1px 2px rgba(255,255,255,0.25), inset -1px -1px 2px rgba(0,0,0,0.25), inset 3px 3px 6px rgba(255,255,255,0.1), inset -3px -3px 6px rgba(0,0,0,0.15), 3px 4px 12px ${frameStyle.shadowColor}, 6px 8px 24px ${frameStyle.shadowColor}${hovered ? `, 0 10px 50px ${cardGlow}` : ""}`,
+        position: "relative",
+        overflow: "hidden",
+        "--grain-angle": `${frameStyle.grainAngle || 87}deg`,
+        boxShadow: frameStyle.hasWoodGrain
+          ? `inset 2px 2px 4px rgba(255,255,255,0.3), inset -2px -2px 4px rgba(0,0,0,0.35), inset 4px 4px 8px rgba(255,255,255,0.1), inset -4px -4px 8px rgba(0,0,0,0.2), 4px 5px 15px ${frameStyle.shadowColor}, 8px 10px 30px ${frameStyle.shadowColor}${hovered ? `, 0 12px 50px ${cardGlow}` : ""}`
+          : `inset 1px 1px 2px rgba(255,255,255,0.25), inset -1px -1px 2px rgba(0,0,0,0.25), inset 3px 3px 6px rgba(255,255,255,0.1), inset -3px -3px 6px rgba(0,0,0,0.15), 3px 4px 12px ${frameStyle.shadowColor}, 6px 8px 24px ${frameStyle.shadowColor}${hovered ? `, 0 10px 50px ${cardGlow}` : ""}`,
         transform: hovered
           ? `translateY(-6px) scale(${(cs.scale || 1) * 1.02}) rotate(0deg)`
           : `translateY(0) rotate(${effectiveRotation}deg) scale(${cs.scale || 1})`,
@@ -1137,18 +1224,25 @@ function ImageCard({ image, index, theme, onClick, t, cardStyle }) {
       onMouseLeave={() => setHovered(false)}
       onClick={() => onClick(image)}
     >
-      {/* Inner Groove — recessed line inside the frame */}
+      {/* Inner Groove — recessed channel inside the frame */}
       <div style={{
         padding: 2,
         background: frameStyle.grooveColor,
         borderRadius: (cs.borderRadius || 16) + 1,
+        position: "relative",
+        zIndex: 2,
+        boxShadow: frameStyle.hasWoodGrain
+          ? "inset 1px 1px 2px rgba(0,0,0,0.3), inset -1px -1px 1px rgba(255,255,255,0.1)"
+          : "none",
       }}>
         {/* Mat — white/cream breathing space */}
         <div style={{
           padding: fiw,
           background: frameStyle.matColor,
           borderRadius: cs.borderRadius || 16,
-          boxShadow: "inset 1px 1px 3px rgba(0,0,0,0.08), inset -1px -1px 3px rgba(255,255,255,0.5)",
+          boxShadow: frameStyle.hasWoodGrain
+            ? "inset 2px 2px 6px rgba(0,0,0,0.12), inset -1px -1px 4px rgba(255,255,255,0.6), inset 0 0 12px rgba(0,0,0,0.04)"
+            : "inset 1px 1px 3px rgba(0,0,0,0.08), inset -1px -1px 3px rgba(255,255,255,0.5)",
         }}>
           {/* Inner Edge — thin gold/silver accent line */}
           <div style={{
