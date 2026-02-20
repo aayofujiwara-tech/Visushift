@@ -465,6 +465,33 @@ function randomInRange(min, max, index) {
   return min + (pseudo % 1000) / 1000 * (max - min);
 }
 
+// --- Deterministic hash from string (for stable random from query) ---
+function queryHash(str) {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) - hash) + str.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash);
+}
+
+// --- Seeded pseudo-random number generator (0-1) ---
+function seededRandom(seed) {
+  const x = Math.sin(seed * 9301 + 49297) * 49297;
+  return x - Math.floor(x);
+}
+
+// --- Seeded Fisher-Yates shuffle ---
+function seededShuffle(arr, seed) {
+  const shuffled = [...arr];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const r = seededRandom(seed + i * 7919);
+    const j = Math.floor(r * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+}
+
 const SUGGEST_CHIPS = {
   en: ["Nature", "Space", "Ocean", "Food", "Architecture", "Art", "Mountains", "Flowers", "Cities", "Animals"],
   ja: ["自然", "宇宙", "海", "料理", "建築", "アート", "山", "花", "都市", "動物"],
@@ -636,26 +663,22 @@ function createDynamicTheme(palette, fonts) {
 }
 
 // --- Pixabay image fetching ---
-async function fetchPixabayImages(query) {
+async function fetchPixabayImages(query, seed) {
   if (!PIXABAY_API_KEY) return null;
 
   try {
-    const randomPage = Math.floor(Math.random() * 3) + 1;
+    const page = (seed % 3) + 1;
     const langParam = containsJapanese(query) ? "&lang=ja" : "";
     const res = await fetch(
-      `https://pixabay.com/api/?key=${PIXABAY_API_KEY}&q=${encodeURIComponent(query)}&per_page=20&page=${randomPage}&image_type=photo&safesearch=true${langParam}`
+      `https://pixabay.com/api/?key=${PIXABAY_API_KEY}&q=${encodeURIComponent(query)}&per_page=20&page=${page}&image_type=photo&safesearch=true${langParam}`
     );
     if (!res.ok) throw new Error("Pixabay API error");
     const data = await res.json();
 
     if (!data.hits || data.hits.length === 0) return null;
 
-    // Fisher-Yates shuffle
-    const shuffled = [...data.hits];
-    for (let i = shuffled.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-    }
+    // Seeded Fisher-Yates shuffle (deterministic for same query)
+    const shuffled = seededShuffle(data.hits, seed);
 
     return shuffled.map((hit) => ({
       id: `pixabay-${hit.id}`,
@@ -670,11 +693,11 @@ async function fetchPixabayImages(query) {
   }
 }
 
-// --- Image fetching (source-aware) ---
-async function fetchImages(query, source) {
+// --- Image fetching (source-aware, seeded for deterministic results) ---
+async function fetchImages(query, source, seed) {
   // Pixabay mode
   if (source === "pixabay") {
-    const pixabayResults = await fetchPixabayImages(query);
+    const pixabayResults = await fetchPixabayImages(query, seed);
     if (pixabayResults) return pixabayResults;
     // Pixabay failure: fall through to Picsum
   }
@@ -682,18 +705,14 @@ async function fetchImages(query, source) {
   // Unsplash mode
   if (source === "unsplash" && UNSPLASH_ACCESS_KEY) {
     try {
-      const randomPage = Math.floor(Math.random() * 5) + 1;
+      const page = (seed % 5) + 1;
       const res = await fetch(
-        `https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&per_page=20&page=${randomPage}&order_by=relevant&client_id=${UNSPLASH_ACCESS_KEY}`
+        `https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&per_page=20&page=${page}&order_by=relevant&client_id=${UNSPLASH_ACCESS_KEY}`
       );
       if (!res.ok) throw new Error("Unsplash API error");
       const data = await res.json();
-      // Fisher-Yates shuffle
-      const shuffled = [...data.results];
-      for (let i = shuffled.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-      }
+      // Seeded Fisher-Yates shuffle (deterministic for same query)
+      const shuffled = seededShuffle(data.results, seed);
       return shuffled.map((photo) => ({
         id: photo.id,
         url: photo.urls.regular,
@@ -709,15 +728,15 @@ async function fetchImages(query, source) {
     }
   }
 
-  // Picsum fallback
-  const timestamp = Date.now();
+  // Picsum fallback (uses query hash for stable results per query)
+  const picsumSeed = seed || queryHash(query);
   return Array.from({ length: 20 }, (_, i) => {
     const w = 400 + (i % 3) * 100;
     const h = 300 + ((i * 7) % 5) * 100;
-    const seed = `${query}${timestamp}${i}`;
+    const imgSeed = `${query}-${picsumSeed}-${i}`;
     return {
-      id: `picsum-${seed}`,
-      url: `https://picsum.photos/seed/${encodeURIComponent(seed)}/${w}/${h}`,
+      id: `picsum-${imgSeed}`,
+      url: `https://picsum.photos/seed/${encodeURIComponent(imgSeed)}/${w}/${h}`,
       title: `${query} #${i + 1}`,
       formattedTitle: capitalizeFirst(query),
       source: "Picsum Photos",
@@ -2337,6 +2356,9 @@ export default function Visushift() {
     return "unsplash";
   });
 
+  // Race condition protection: track current search to ignore stale results
+  const searchIdRef = useRef(0);
+
   const t = I18N[lang];
 
   const handleToggleLang = useCallback(() => {
@@ -2348,6 +2370,9 @@ export default function Visushift() {
   }, []);
 
   const handleSearch = useCallback(async (searchQuery, skipPushState = false) => {
+    // Increment search ID to invalidate any in-flight previous search
+    const currentSearchId = ++searchIdRef.current;
+
     setQuery(searchQuery);
     setSearched(true);
     setLoading(true);
@@ -2359,7 +2384,10 @@ export default function Visushift() {
       window.history.pushState({ query: searchQuery }, "", `?q=${encodeURIComponent(searchQuery)}`);
     }
 
-    // Reset random seed for this search
+    // Deterministic seed from query (same query → same results)
+    const seed = queryHash(searchQuery);
+
+    // Reset random seed for card styling
     resetRandomSeed();
 
     // Detect fonts immediately from query
@@ -2367,12 +2395,13 @@ export default function Visushift() {
     // Apply fonts to current (default) theme immediately
     setTheme((prev) => ({ ...prev, font: fonts.font, bodyFont: fonts.bodyFont }));
 
-    // Select random layout mode
-    const randomLayout = { ...LAYOUT_MODES[Math.floor(Math.random() * LAYOUT_MODES.length)] };
-    if (randomLayout.name === "asymmetric") {
-      randomLayout.flexPatternIndex = Math.floor(Math.random() * 3);
+    // Select layout mode using seeded random (deterministic per query)
+    const layoutIndex = seed % LAYOUT_MODES.length;
+    const selectedLayout = { ...LAYOUT_MODES[layoutIndex] };
+    if (selectedLayout.name === "asymmetric") {
+      selectedLayout.flexPatternIndex = (seed >> 2) % 3;
     }
-    setLayoutMode(randomLayout);
+    setLayoutMode(selectedLayout);
 
     setHistory((prev) => {
       const filtered = prev.filter((h) => h.toLowerCase() !== searchQuery.toLowerCase());
@@ -2386,6 +2415,9 @@ export default function Visushift() {
       searchTerm = await translateToEnglish(searchQuery);
     }
 
+    // Stale check after async translation
+    if (searchIdRef.current !== currentSearchId) return;
+
     // Re-detect fonts using translated query (English patterns may match)
     if (searchTerm !== searchQuery) {
       const fontsFromTranslated = detectFonts(searchTerm);
@@ -2394,16 +2426,22 @@ export default function Visushift() {
       }
     }
 
-    const results = await fetchImages(searchTerm, imageSource);
+    const results = await fetchImages(searchTerm, imageSource, seed);
+
+    // Stale check after async fetch
+    if (searchIdRef.current !== currentSearchId) return;
+
     setImages(results);
     setCardColorAnalysis([]);
 
-    // Per-card color analysis (async, non-blocking)
+    // Per-card color analysis (async, non-blocking, with stale guard)
     const analysisDisplayCount = window.innerWidth < 480 ? 8 : window.innerWidth < 768 ? 12 : 16;
     const analysisTargets = results.slice(0, analysisDisplayCount);
     Promise.allSettled(
       analysisTargets.map((img) => analyzeImageColors(img.url))
     ).then((settled) => {
+      // Only apply if this search is still current
+      if (searchIdRef.current !== currentSearchId) return;
       const analyses = settled.map((s) => s.status === "fulfilled" ? s.value : null);
       setCardColorAnalysis(analyses);
     });
@@ -2431,14 +2469,18 @@ export default function Visushift() {
     // Extract colors → apply theme BEFORE hiding loader
     try {
       const colors = await extractColorsFromImages(results, 5, searchQuery);
+
+      // Stale check after async color extraction
+      if (searchIdRef.current !== currentSearchId) return;
+
       const palette = generatePalette(colors);
 
-      // Temperature-based font selection
+      // Temperature-based font selection (seeded for determinism)
       let finalFonts = fonts;
       const temp = getColorTemperature(palette);
       const tempFontOptions = TEMPERATURE_FONTS[temp];
-      if (fonts === DEFAULT_FONTS || Math.random() < 0.3) {
-        finalFonts = tempFontOptions[Math.floor(Math.random() * tempFontOptions.length)];
+      if (fonts === DEFAULT_FONTS || seededRandom(seed + 999) < 0.3) {
+        finalFonts = tempFontOptions[seed % tempFontOptions.length];
       }
 
       const dynamicTheme = createDynamicTheme(palette, finalFonts);
@@ -2448,7 +2490,9 @@ export default function Visushift() {
     }
 
     // Hide loader last so theme+background are already applied
-    setLoading(false);
+    if (searchIdRef.current === currentSearchId) {
+      setLoading(false);
+    }
   }, [imageSource]);
 
   const handleReset = useCallback((skipPushState = false) => {
