@@ -1976,7 +1976,7 @@ export default function Visushift() {
   const [history, setHistory] = useState([]);
   const [theme, setTheme] = useState(makeDefaultTheme);
   const [bgImages, setBgImages] = useState([]);
-  const [lang, setLang] = useState("en");
+  const [lang, setLang] = useState("ja");
   const [cardStyles, setCardStyles] = useState([]);
   const [layoutMode, setLayoutMode] = useState(LAYOUT_MODES[0]);
   const [cardColorAnalysis, setCardColorAnalysis] = useState([]);
