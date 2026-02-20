@@ -693,42 +693,35 @@ async function fetchPixabayImages(query, seed) {
   }
 }
 
-// --- Image fetching (source-aware, seeded for deterministic results) ---
-async function fetchImages(query, source, seed) {
-  // Pixabay mode
-  if (source === "pixabay") {
-    const pixabayResults = await fetchPixabayImages(query, seed);
-    if (pixabayResults) return pixabayResults;
-    // Pixabay failure: fall through to Picsum
-  }
+// --- Unsplash image fetching ---
+async function fetchUnsplashImages(query, seed) {
+  if (!UNSPLASH_ACCESS_KEY) return null;
 
-  // Unsplash mode
-  if (source === "unsplash" && UNSPLASH_ACCESS_KEY) {
-    try {
-      const page = (seed % 5) + 1;
-      const res = await fetch(
-        `https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&per_page=20&page=${page}&order_by=relevant&client_id=${UNSPLASH_ACCESS_KEY}`
-      );
-      if (!res.ok) throw new Error("Unsplash API error");
-      const data = await res.json();
-      // Seeded Fisher-Yates shuffle (deterministic for same query)
-      const shuffled = seededShuffle(data.results, seed);
-      return shuffled.map((photo) => ({
-        id: photo.id,
-        url: photo.urls.regular,
-        title: photo.description || photo.alt_description || query,
-        formattedTitle: formatImageTitle(
-          photo.description || photo.alt_description || query, query
-        ),
-        source: photo.user.name,
-        color: photo.color,
-      }));
-    } catch {
-      // fall through to Picsum
-    }
+  try {
+    const page = (seed % 5) + 1;
+    const res = await fetch(
+      `https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&per_page=20&page=${page}&order_by=relevant&client_id=${UNSPLASH_ACCESS_KEY}`
+    );
+    if (!res.ok) throw new Error("Unsplash API error");
+    const data = await res.json();
+    const shuffled = seededShuffle(data.results, seed);
+    return shuffled.map((photo) => ({
+      id: photo.id,
+      url: photo.urls.regular,
+      title: photo.description || photo.alt_description || query,
+      formattedTitle: formatImageTitle(
+        photo.description || photo.alt_description || query, query
+      ),
+      source: photo.user.name,
+      color: photo.color,
+    }));
+  } catch {
+    return null;
   }
+}
 
-  // Picsum fallback (uses query hash for stable results per query)
+// --- Picsum fallback ---
+function fetchPicsumImages(query, seed) {
   const picsumSeed = seed || queryHash(query);
   return Array.from({ length: 20 }, (_, i) => {
     const w = 400 + (i % 3) * 100;
@@ -743,6 +736,38 @@ async function fetchImages(query, source, seed) {
       color: null,
     };
   });
+}
+
+// --- Interleave two arrays: [A0, B0, A1, B1, ...] ---
+function interleave(a, b, seed) {
+  const result = [];
+  const maxLen = Math.max(a.length, b.length);
+  for (let i = 0; i < maxLen; i++) {
+    if (i < a.length) result.push(a[i]);
+    if (i < b.length) result.push(b[i]);
+  }
+  return result;
+}
+
+// --- Mixed image fetching (Unsplash + Pixabay in parallel, interleaved) ---
+async function fetchImages(unsplashQuery, pixabayQuery, seed) {
+  // Fetch both sources in parallel
+  const [unsplashResults, pixabayResults] = await Promise.all([
+    fetchUnsplashImages(unsplashQuery, seed),
+    fetchPixabayImages(pixabayQuery, seed + 31),
+  ]);
+
+  // Both succeeded → interleave
+  if (unsplashResults && pixabayResults) {
+    return interleave(unsplashResults, pixabayResults, seed);
+  }
+
+  // One succeeded → use it
+  if (unsplashResults) return unsplashResults;
+  if (pixabayResults) return pixabayResults;
+
+  // Both failed → Picsum fallback
+  return fetchPicsumImages(unsplashQuery, seed);
 }
 
 // --- Extract colors from images (use Unsplash color if available, else Canvas, else query hash) ---
@@ -1096,7 +1121,7 @@ function ImmersiveBackground({ bgImages, theme }) {
 }
 
 // --- Header ---
-function Header({ theme, query, onSearch, onReset, lang, onToggleLang, t, layoutMode, imageSource, onToggleSource }) {
+function Header({ theme, query, onSearch, onReset, lang, onToggleLang, t, layoutMode }) {
   const [input, setInput] = useState("");
   const [focused, setFocused] = useState(false);
   const inputRef = useRef(null);
@@ -1160,39 +1185,6 @@ function Header({ theme, query, onSearch, onReset, lang, onToggleLang, t, layout
 
   const controlsElement = (
     <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-      <button
-        type="button"
-        onClick={onToggleSource}
-        style={{
-          padding: isMobile ? "5px 8px" : "6px 12px",
-          borderRadius: 8,
-          border: `1px solid ${theme.border}`,
-          background: "rgba(255,255,255,0.07)",
-          color: theme.subtext,
-          fontSize: isMobile ? 10 : 11,
-          fontWeight: 600,
-          cursor: "pointer",
-          transition: "all 0.3s cubic-bezier(0.23, 1, 0.32, 1)",
-          display: "flex",
-          alignItems: "center",
-          gap: 3,
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.borderColor = theme.accent;
-          e.currentTarget.style.color = theme.text;
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.borderColor = theme.border;
-          e.currentTarget.style.color = theme.subtext;
-        }}
-      >
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-          <circle cx="12" cy="13" r="4" />
-        </svg>
-        {imageSource === "unsplash" ? "Unsplash" : "Pixabay"}
-      </button>
-
       <button
         type="button"
         onClick={onToggleLang}
@@ -2350,11 +2342,6 @@ export default function Visushift() {
   const [layoutMode, setLayoutMode] = useState(LAYOUT_MODES[0]);
   const [cardColorAnalysis, setCardColorAnalysis] = useState([]);
   const [translatedTitles, setTranslatedTitles] = useState({});
-  const [imageSource, setImageSource] = useState(() => {
-    if (PIXABAY_API_KEY) return "pixabay";
-    if (UNSPLASH_ACCESS_KEY) return "unsplash";
-    return "unsplash";
-  });
 
   // Race condition protection: track current search to ignore stale results
   const searchIdRef = useRef(0);
@@ -2363,10 +2350,6 @@ export default function Visushift() {
 
   const handleToggleLang = useCallback(() => {
     setLang((prev) => (prev === "en" ? "ja" : "en"));
-  }, []);
-
-  const handleToggleSource = useCallback(() => {
-    setImageSource((prev) => prev === "unsplash" ? "pixabay" : "unsplash");
   }, []);
 
   const handleSearch = useCallback(async (searchQuery, skipPushState = false) => {
@@ -2410,25 +2393,27 @@ export default function Visushift() {
       return [searchQuery, ...filtered].slice(0, 8);
     });
 
-    // Translate Japanese to English only for Unsplash mode
-    // Pixabay supports Japanese queries natively
-    let searchTerm = searchQuery;
-    if (imageSource === "unsplash" && containsJapanese(searchQuery)) {
-      searchTerm = await translateToEnglish(searchQuery);
+    // Prepare queries for both sources:
+    // Unsplash needs English, Pixabay supports Japanese natively
+    let unsplashQuery = searchQuery;
+    const pixabayQuery = searchQuery;
+    if (containsJapanese(searchQuery)) {
+      unsplashQuery = await translateToEnglish(searchQuery);
     }
 
     // Stale check after async translation
     if (searchIdRef.current !== currentSearchId) return;
 
     // Re-detect fonts using translated query (English patterns may match)
-    if (searchTerm !== searchQuery) {
-      const fontsFromTranslated = detectFonts(searchTerm);
+    if (unsplashQuery !== searchQuery) {
+      const fontsFromTranslated = detectFonts(unsplashQuery);
       if (fontsFromTranslated !== DEFAULT_FONTS) {
         setTheme((prev) => ({ ...prev, font: fontsFromTranslated.font, bodyFont: fontsFromTranslated.bodyFont }));
       }
     }
 
-    const results = await fetchImages(searchTerm, imageSource, seed);
+    // Fetch from both sources in parallel and interleave results
+    const results = await fetchImages(unsplashQuery, pixabayQuery, seed);
 
     // Stale check after async fetch
     if (searchIdRef.current !== currentSearchId) return;
@@ -2495,7 +2480,7 @@ export default function Visushift() {
     if (searchIdRef.current === currentSearchId) {
       setLoading(false);
     }
-  }, [imageSource]);
+  }, []);
 
   const handleReset = useCallback((skipPushState = false) => {
     setQuery("");
@@ -2594,7 +2579,7 @@ export default function Visushift() {
     <>
       <GlobalStyles theme={theme} />
       <ImmersiveBackground bgImages={bgImages} theme={theme} />
-      <Header theme={theme} query={query} onSearch={handleSearch} onReset={handleReset} lang={lang} onToggleLang={handleToggleLang} t={t} layoutMode={layoutMode} imageSource={imageSource} onToggleSource={handleToggleSource} />
+      <Header theme={theme} query={query} onSearch={handleSearch} onReset={handleReset} lang={lang} onToggleLang={handleToggleLang} t={t} layoutMode={layoutMode} />
 
       {!searched ? (
         <Landing theme={theme} onSearch={handleSearch} history={history} lang={lang} t={t} />
