@@ -139,6 +139,66 @@ async function translateToJapanese(enText) {
   return enText;
 }
 
+// --- Capitalize first letter ---
+function capitalizeFirst(str) {
+  if (!str) return "";
+  return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
+// --- Format image tags into a natural title ---
+function formatImageTitle(rawTitle, query) {
+  if (!rawTitle) return query || "";
+
+  // 1) If no commas → Unsplash description or single word → return as-is with capitalization
+  const commaCount = (rawTitle.match(/,/g) || []).length;
+  if (commaCount === 0) {
+    return capitalizeFirst(rawTitle.trim());
+  }
+
+  // 2) Pixabay etc: "sunset, beach, ocean, waves, sky" tag list
+  const tags = rawTitle.split(",").map((t) => t.trim()).filter(Boolean);
+  if (tags.length === 0) return query || "";
+  if (tags.length === 1) return capitalizeFirst(tags[0]);
+
+  const queryLower = (query || "").toLowerCase();
+  const isJapanese = containsJapanese(rawTitle);
+
+  // 3) Deduplicate & remove tags matching the search query
+  const filtered = tags.filter((tag, i, arr) => {
+    if (arr.indexOf(tag) !== i) return false;
+    if (tag.toLowerCase() === queryLower) return false;
+    return true;
+  });
+
+  if (filtered.length === 0) return capitalizeFirst(tags[0]);
+
+  // 4) Select meaningful tags (max 3)
+  let selected;
+  if (isJapanese) {
+    // Japanese tags: skip single-char tags only
+    selected = filtered.filter((t) => t.length > 1).slice(0, 3);
+    if (selected.length === 0) selected = filtered.slice(0, 3);
+  } else {
+    const STOP_WORDS = new Set([
+      "the", "a", "an", "and", "or", "of", "in", "on", "at", "to", "for",
+      "is", "it", "this", "that", "with", "from", "by", "as", "be",
+      "photo", "image", "picture", "wallpaper", "background", "free",
+      "stock", "photography", "hd", "4k", "8k", "uhd",
+    ]);
+    const meaningful = filtered.filter((tag) => {
+      if (tag.length <= 2) return false;
+      if (STOP_WORDS.has(tag.toLowerCase())) return false;
+      return true;
+    });
+    selected = (meaningful.length > 0 ? meaningful : filtered).slice(0, 3);
+  }
+
+  // 5) Assemble into museum-caption style phrase with " · " separator
+  if (selected.length === 1) return capitalizeFirst(selected[0]);
+  if (selected.length === 2) return `${capitalizeFirst(selected[0])} · ${capitalizeFirst(selected[1])}`;
+  return selected.map(capitalizeFirst).join(" · ");
+}
+
 // --- Font selection by search keyword ---
 const FONT_PATTERNS = [
   { regex: /nature|forest|flower|garden|tree|leaf|plant|green/i, font: "'Playfair Display', serif", bodyFont: "'Source Sans 3', sans-serif" },
@@ -409,6 +469,7 @@ async function fetchPixabayImages(query) {
       id: `pixabay-${hit.id}`,
       url: hit.largeImageURL || hit.webformatURL,
       title: hit.tags || query,
+      formattedTitle: formatImageTitle(hit.tags || query, query),
       source: `${hit.user} (Pixabay)`,
       color: null,
     }));
@@ -445,6 +506,9 @@ async function fetchImages(query, source) {
         id: photo.id,
         url: photo.urls.regular,
         title: photo.description || photo.alt_description || query,
+        formattedTitle: formatImageTitle(
+          photo.description || photo.alt_description || query, query
+        ),
         source: photo.user.name,
         color: photo.color,
       }));
@@ -463,6 +527,7 @@ async function fetchImages(query, source) {
       id: `picsum-${seed}`,
       url: `https://picsum.photos/seed/${encodeURIComponent(seed)}/${w}/${h}`,
       title: `${query} #${i + 1}`,
+      formattedTitle: capitalizeFirst(query),
       source: "Picsum Photos",
       color: null,
     };
@@ -1927,7 +1992,7 @@ function ScatterLayout({ images, theme, onImageClick, t, cardStyles, cardColorAn
               displayTitle={
                 lang === "ja" && translatedTitles && translatedTitles[img.id]
                   ? translatedTitles[img.id]
-                  : img.title || ""
+                  : (img.formattedTitle || img.title || "")
               }
               lang={lang}
             />
@@ -1939,7 +2004,7 @@ function ScatterLayout({ images, theme, onImageClick, t, cardStyles, cardColorAn
 }
 
 // --- Lightbox ---
-function Lightbox({ image, theme, onClose }) {
+function Lightbox({ image, theme, onClose, translatedTitles, lang }) {
   const isMobile = typeof window !== "undefined" && window.innerWidth < 640;
 
   useEffect(() => {
@@ -2015,7 +2080,9 @@ function Lightbox({ image, theme, onClose }) {
         }}
       >
         <p style={{ fontSize: 16, fontWeight: 600, color: theme.text, marginBottom: 4 }}>
-          {image.title}
+          {lang === "ja" && translatedTitles && translatedTitles[image.id]
+            ? translatedTitles[image.id]
+            : (image.formattedTitle || image.title)}
         </p>
         <p style={{ fontSize: 13, color: theme.subtext }}>{image.source}</p>
       </div>
@@ -2263,7 +2330,8 @@ export default function Visushift() {
 
       await Promise.allSettled(
         targets.map(async (img) => {
-          const title = img.title || "";
+          // Use formatted title for translation (cleaner than raw tags)
+          const title = img.formattedTitle || img.title || "";
           if (!title || containsJapanese(title)) {
             results[img.id] = title;
             return;
@@ -2301,7 +2369,7 @@ export default function Visushift() {
         </>
       )}
 
-      <Lightbox image={lightboxImage} theme={theme} onClose={closeLightbox} />
+      <Lightbox image={lightboxImage} theme={theme} onClose={closeLightbox} translatedTitles={translatedTitles} lang={lang} />
     </>
   );
 }
