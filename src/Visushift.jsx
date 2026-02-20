@@ -102,6 +102,43 @@ async function translateToEnglish(jaText) {
   return jaText;
 }
 
+// --- Reverse dictionary (EN → JA) auto-generated from JA_EN_DICT ---
+const EN_JA_DICT = {};
+for (const [ja, en] of Object.entries(JA_EN_DICT)) {
+  EN_JA_DICT[en.toLowerCase()] = ja;
+}
+
+// --- Translate English to Japanese (dict → partial match → MyMemory API → fallback) ---
+async function translateToJapanese(enText) {
+  if (!enText || containsJapanese(enText)) return enText;
+
+  const lower = enText.toLowerCase().trim();
+  if (EN_JA_DICT[lower]) return EN_JA_DICT[lower];
+
+  for (const [en, ja] of Object.entries(EN_JA_DICT)) {
+    if (lower.includes(en)) {
+      return enText.replace(new RegExp(en, "i"), ja);
+    }
+  }
+
+  try {
+    const res = await fetch(
+      `https://api.mymemory.translated.net/get?q=${encodeURIComponent(enText)}&langpair=en|ja`
+    );
+    if (res.ok) {
+      const data = await res.json();
+      if (data.responseData && data.responseData.translatedText) {
+        const translated = data.responseData.translatedText;
+        if (translated && translated !== enText) return translated;
+      }
+    }
+  } catch {
+    // API failure
+  }
+
+  return enText;
+}
+
 // --- Font selection by search keyword ---
 const FONT_PATTERNS = [
   { regex: /nature|forest|flower|garden|tree|leaf|plant|green/i, font: "'Playfair Display', serif", bodyFont: "'Source Sans 3', sans-serif" },
@@ -1425,7 +1462,7 @@ function generateFrameStyle(imageColor, theme, index, colorAnalysis) {
 }
 
 // --- ImageCard with per-card color glow and realistic multi-layer frame ---
-function ImageCard({ image, index, theme, onClick, t, cardStyle, colorAnalysis }) {
+function ImageCard({ image, index, theme, onClick, t, cardStyle, colorAnalysis, displayTitle, lang }) {
   const [loaded, setLoaded] = useState(false);
   const [hovered, setHovered] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -1461,231 +1498,279 @@ function ImageCard({ image, index, theme, onClick, t, cardStyle, colorAnalysis }
     // Error card uses darkWood-style fallback frame
     const errStyle = generateFrameStyle(null, theme, index);
     return (
-      <div
-        className={errStyle.hasWoodGrain ? `wood-grain-${errStyle.grainDensity || "medium"}` : ""}
-        style={{
-          padding: fw,
-          background: errStyle.outerGradient || `linear-gradient(${gradAngle}deg, ${errStyle.outerDark} 0%, ${errStyle.outerLight} 15%, ${errStyle.outerMid} 30%, ${errStyle.outerLight} 45%, ${errStyle.outerDark} 55%, ${errStyle.outerMid} 70%, ${errStyle.outerLight} 85%, ${errStyle.outerDark} 100%)`,
-          borderRadius: (cs.borderRadius || 16) + 4,
-          position: "relative",
-          overflow: "hidden",
-          "--grain-angle": `${errStyle.grainAngle || 87}deg`,
-          boxShadow: errStyle.hasWoodGrain
-            ? `inset 2px 2px 4px rgba(255,255,255,0.3), inset -2px -2px 4px rgba(0,0,0,0.35), inset 4px 4px 8px rgba(255,255,255,0.1), inset -4px -4px 8px rgba(0,0,0,0.2), 4px 5px 15px ${errStyle.shadowColor}, 8px 10px 30px ${errStyle.shadowColor}`
-            : `inset 1px 1px 2px rgba(255,255,255,0.25), inset -1px -1px 2px rgba(0,0,0,0.25), inset 3px 3px 6px rgba(255,255,255,0.1), inset -3px -3px 6px rgba(0,0,0,0.15), 3px 4px 12px ${errStyle.shadowColor}, 6px 8px 24px ${errStyle.shadowColor}`,
-          animation: `fadeSlideUp 0.5s cubic-bezier(0.23, 1, 0.32, 1) ${index * 60}ms both`,
-        }}
-      >
-        {/* Inner Groove */}
-        <div style={{
-          padding: 2,
-          background: errStyle.grooveColor,
-          borderRadius: (cs.borderRadius || 16) + 1,
-          position: "relative",
-          zIndex: 2,
-          boxShadow: errStyle.hasWoodGrain ? "inset 1px 1px 2px rgba(0,0,0,0.3), inset -1px -1px 1px rgba(255,255,255,0.1)" : "none",
-        }}>
-          {/* Mat */}
-          <div style={{
-            padding: fiw,
-            background: errStyle.matColor,
-            borderRadius: cs.borderRadius || 16,
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+        <div
+          className={errStyle.hasWoodGrain ? `wood-grain-${errStyle.grainDensity || "medium"}` : ""}
+          style={{
+            padding: fw,
+            background: errStyle.outerGradient || `linear-gradient(${gradAngle}deg, ${errStyle.outerDark} 0%, ${errStyle.outerLight} 15%, ${errStyle.outerMid} 30%, ${errStyle.outerLight} 45%, ${errStyle.outerDark} 55%, ${errStyle.outerMid} 70%, ${errStyle.outerLight} 85%, ${errStyle.outerDark} 100%)`,
+            borderRadius: (cs.borderRadius || 16) + 4,
+            position: "relative",
+            overflow: "hidden",
+            "--grain-angle": `${errStyle.grainAngle || 87}deg`,
             boxShadow: errStyle.hasWoodGrain
-              ? "inset 2px 2px 6px rgba(0,0,0,0.12), inset -1px -1px 4px rgba(255,255,255,0.6), inset 0 0 12px rgba(0,0,0,0.04)"
-              : "inset 1px 1px 3px rgba(0,0,0,0.08), inset -1px -1px 3px rgba(255,255,255,0.5)",
+              ? `inset 2px 2px 4px rgba(255,255,255,0.3), inset -2px -2px 4px rgba(0,0,0,0.35), inset 4px 4px 8px rgba(255,255,255,0.1), inset -4px -4px 8px rgba(0,0,0,0.2), 4px 5px 15px ${errStyle.shadowColor}, 8px 10px 30px ${errStyle.shadowColor}`
+              : `inset 1px 1px 2px rgba(255,255,255,0.25), inset -1px -1px 2px rgba(0,0,0,0.25), inset 3px 3px 6px rgba(255,255,255,0.1), inset -3px -3px 6px rgba(0,0,0,0.15), 3px 4px 12px ${errStyle.shadowColor}, 6px 8px 24px ${errStyle.shadowColor}`,
+            animation: `fadeSlideUp 0.5s cubic-bezier(0.23, 1, 0.32, 1) ${index * 60}ms both`,
+          }}
+        >
+          {/* Inner Groove */}
+          <div style={{
+            padding: 2,
+            background: errStyle.grooveColor,
+            borderRadius: (cs.borderRadius || 16) + 1,
+            position: "relative",
+            zIndex: 2,
+            boxShadow: errStyle.hasWoodGrain ? "inset 1px 1px 2px rgba(0,0,0,0.3), inset -1px -1px 1px rgba(255,255,255,0.1)" : "none",
           }}>
-            {/* Inner Edge */}
-            <div style={{ padding: 1, background: errStyle.innerEdge, borderRadius: Math.max(0, (cs.borderRadius || 16) - 2) }}>
-              <div
-                style={{
-                  borderRadius: Math.max(0, (cs.borderRadius || 16) - 3),
-                  overflow: "hidden",
-                  background: "rgba(0, 0, 0, 0.25)",
-                  backdropFilter: "blur(10px)",
-                  WebkitBackdropFilter: "blur(10px)",
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  padding: "40px 16px",
-                  paddingBottom: `${40 + (cs.paddingBottom || 0)}px`,
-                  minHeight: 200,
-                }}
-              >
-                <div style={{ fontSize: 32, marginBottom: 12, opacity: 0.4 }}>🖼️</div>
-                <p
+            {/* Mat */}
+            <div style={{
+              padding: fiw,
+              background: errStyle.matColor,
+              borderRadius: cs.borderRadius || 16,
+              boxShadow: errStyle.hasWoodGrain
+                ? "inset 2px 2px 6px rgba(0,0,0,0.12), inset -1px -1px 4px rgba(255,255,255,0.6), inset 0 0 12px rgba(0,0,0,0.04)"
+                : "inset 1px 1px 3px rgba(0,0,0,0.08), inset -1px -1px 3px rgba(255,255,255,0.5)",
+            }}>
+              {/* Inner Edge */}
+              <div style={{ padding: 1, background: errStyle.innerEdge, borderRadius: Math.max(0, (cs.borderRadius || 16) - 2) }}>
+                <div
                   style={{
-                    fontFamily: theme.bodyFont,
-                    fontSize: 13,
-                    color: theme.subtext,
-                    opacity: 0.6,
-                    textAlign: "center",
+                    borderRadius: Math.max(0, (cs.borderRadius || 16) - 3),
+                    overflow: "hidden",
+                    background: "rgba(0, 0, 0, 0.25)",
+                    backdropFilter: "blur(10px)",
+                    WebkitBackdropFilter: "blur(10px)",
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    padding: "40px 16px",
+                    paddingBottom: `${40 + (cs.paddingBottom || 0)}px`,
+                    minHeight: 200,
                   }}
                 >
-                  {t.imageNotAvailable}
-                </p>
+                  <div style={{ fontSize: 32, marginBottom: 12, opacity: 0.4 }}>🖼️</div>
+                  <p
+                    style={{
+                      fontFamily: theme.bodyFont,
+                      fontSize: 13,
+                      color: theme.subtext,
+                      opacity: 0.6,
+                      textAlign: "center",
+                    }}
+                  >
+                    {t.imageNotAvailable}
+                  </p>
+                </div>
               </div>
             </div>
           </div>
         </div>
+        {displayTitle && (
+          <div style={{ marginTop: isMobile ? 4 : 6, maxWidth: "100%", textAlign: "center", padding: "2px 8px" }}>
+            <p style={{
+              fontFamily: theme.bodyFont,
+              fontSize: isMobile ? 9 : 12,
+              color: theme.subtext,
+              opacity: 0.5,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}>
+              {displayTitle}
+            </p>
+          </div>
+        )}
       </div>
     );
   }
 
   return (
-    /* Outer Frame — wood/metal texture via multi-stop gradient */
-    <div
-      className={frameStyle.hasWoodGrain ? `wood-grain-${frameStyle.grainDensity || "medium"}` : ""}
-      style={{
-        padding: fw,
-        background: frameStyle.outerGradient || `linear-gradient(${gradAngle}deg, ${frameStyle.outerDark} 0%, ${frameStyle.outerLight} 15%, ${frameStyle.outerMid} 30%, ${frameStyle.outerLight} 45%, ${frameStyle.outerDark} 55%, ${frameStyle.outerMid} 70%, ${frameStyle.outerLight} 85%, ${frameStyle.outerDark} 100%)`,
-        borderRadius: (cs.borderRadius || 16) + 4,
-        position: "relative",
-        overflow: "hidden",
-        "--grain-angle": `${frameStyle.grainAngle || 87}deg`,
-        boxShadow: frameStyle.hasWoodGrain
-          ? `inset 2px 2px 4px rgba(255,255,255,0.3), inset -2px -2px 4px rgba(0,0,0,0.35), inset 4px 4px 8px rgba(255,255,255,0.1), inset -4px -4px 8px rgba(0,0,0,0.2), 4px 5px 15px ${frameStyle.shadowColor}, 8px 10px 30px ${frameStyle.shadowColor}${hovered ? `, 0 12px 50px ${cardGlow}` : ""}`
-          : `inset 1px 1px 2px rgba(255,255,255,0.25), inset -1px -1px 2px rgba(0,0,0,0.25), inset 3px 3px 6px rgba(255,255,255,0.1), inset -3px -3px 6px rgba(0,0,0,0.15), 3px 4px 12px ${frameStyle.shadowColor}, 6px 8px 24px ${frameStyle.shadowColor}${hovered ? `, 0 10px 50px ${cardGlow}` : ""}`,
-        transform: hovered
-          ? `translateY(-6px) scale(${(cs.scale || 1) * 1.02}) rotate(0deg)`
-          : `translateY(0) rotate(${effectiveRotation}deg) scale(${cs.scale || 1})`,
-        transition: "all 0.4s cubic-bezier(0.23, 1, 0.32, 1)",
-        cursor: "pointer",
-        animation: loaded ? `fadeSlideUp 0.5s cubic-bezier(0.23, 1, 0.32, 1) ${index * 60}ms both` : "none",
-        opacity: loaded ? undefined : 0,
-      }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      onClick={() => onClick(image)}
-    >
-      {/* Inner Groove — recessed channel inside the frame */}
-      <div style={{
-        padding: 2,
-        background: frameStyle.grooveColor,
-        borderRadius: (cs.borderRadius || 16) + 1,
-        position: "relative",
-        zIndex: 2,
-        boxShadow: frameStyle.hasWoodGrain
-          ? "inset 1px 1px 2px rgba(0,0,0,0.3), inset -1px -1px 1px rgba(255,255,255,0.1)"
-          : "none",
-      }}>
-        {/* Mat — white/cream breathing space */}
-        <div style={{
-          padding: fiw,
-          background: frameStyle.matColor,
-          borderRadius: cs.borderRadius || 16,
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+      {/* Outer Frame — wood/metal texture via multi-stop gradient */}
+      <div
+        className={frameStyle.hasWoodGrain ? `wood-grain-${frameStyle.grainDensity || "medium"}` : ""}
+        style={{
+          padding: fw,
+          background: frameStyle.outerGradient || `linear-gradient(${gradAngle}deg, ${frameStyle.outerDark} 0%, ${frameStyle.outerLight} 15%, ${frameStyle.outerMid} 30%, ${frameStyle.outerLight} 45%, ${frameStyle.outerDark} 55%, ${frameStyle.outerMid} 70%, ${frameStyle.outerLight} 85%, ${frameStyle.outerDark} 100%)`,
+          borderRadius: (cs.borderRadius || 16) + 4,
+          position: "relative",
+          overflow: "hidden",
+          "--grain-angle": `${frameStyle.grainAngle || 87}deg`,
           boxShadow: frameStyle.hasWoodGrain
-            ? "inset 2px 2px 6px rgba(0,0,0,0.12), inset -1px -1px 4px rgba(255,255,255,0.6), inset 0 0 12px rgba(0,0,0,0.04)"
-            : "inset 1px 1px 3px rgba(0,0,0,0.08), inset -1px -1px 3px rgba(255,255,255,0.5)",
+            ? `inset 2px 2px 4px rgba(255,255,255,0.3), inset -2px -2px 4px rgba(0,0,0,0.35), inset 4px 4px 8px rgba(255,255,255,0.1), inset -4px -4px 8px rgba(0,0,0,0.2), 4px 5px 15px ${frameStyle.shadowColor}, 8px 10px 30px ${frameStyle.shadowColor}${hovered ? `, 0 12px 50px ${cardGlow}` : ""}`
+            : `inset 1px 1px 2px rgba(255,255,255,0.25), inset -1px -1px 2px rgba(0,0,0,0.25), inset 3px 3px 6px rgba(255,255,255,0.1), inset -3px -3px 6px rgba(0,0,0,0.15), 3px 4px 12px ${frameStyle.shadowColor}, 6px 8px 24px ${frameStyle.shadowColor}${hovered ? `, 0 10px 50px ${cardGlow}` : ""}`,
+          transform: hovered
+            ? `translateY(-6px) scale(${(cs.scale || 1) * 1.02}) rotate(0deg)`
+            : `translateY(0) rotate(${effectiveRotation}deg) scale(${cs.scale || 1})`,
+          transition: "all 0.4s cubic-bezier(0.23, 1, 0.32, 1)",
+          cursor: "pointer",
+          animation: loaded ? `fadeSlideUp 0.5s cubic-bezier(0.23, 1, 0.32, 1) ${index * 60}ms both` : "none",
+          opacity: loaded ? undefined : 0,
+        }}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        onClick={() => onClick(image)}
+      >
+        {/* Inner Groove — recessed channel inside the frame */}
+        <div style={{
+          padding: 2,
+          background: frameStyle.grooveColor,
+          borderRadius: (cs.borderRadius || 16) + 1,
+          position: "relative",
+          zIndex: 2,
+          boxShadow: frameStyle.hasWoodGrain
+            ? "inset 1px 1px 2px rgba(0,0,0,0.3), inset -1px -1px 1px rgba(255,255,255,0.1)"
+            : "none",
         }}>
-          {/* Inner Edge — thin gold/silver accent line */}
+          {/* Mat — white/cream breathing space */}
           <div style={{
-            padding: 1,
-            background: frameStyle.innerEdge,
-            borderRadius: Math.max(0, (cs.borderRadius || 16) - 2),
+            padding: fiw,
+            background: frameStyle.matColor,
+            borderRadius: cs.borderRadius || 16,
+            boxShadow: frameStyle.hasWoodGrain
+              ? "inset 2px 2px 6px rgba(0,0,0,0.12), inset -1px -1px 4px rgba(255,255,255,0.6), inset 0 0 12px rgba(0,0,0,0.04)"
+              : "inset 1px 1px 3px rgba(0,0,0,0.08), inset -1px -1px 3px rgba(255,255,255,0.5)",
           }}>
-            {/* Image container */}
-            <div
-              style={{
-                borderRadius: Math.max(0, (cs.borderRadius || 16) - 3),
-                overflow: "hidden",
-                position: "relative",
-              }}
-            >
-              <img
-                src={image.url}
-                alt={image.title}
-                onLoad={() => setLoaded(true)}
-                onError={() => setError(true)}
-                style={{
-                  width: "100%",
-                  display: "block",
-                  maxHeight: isMobile ? 180 : 320,
-                  objectFit: "cover",
-                  filter: hovered ? "brightness(1.1)" : "brightness(1)",
-                  transition: "filter 0.4s ease",
-                }}
-              />
-
-              {/* Hover overlay (title, source) — always visible on mobile */}
+            {/* Inner Edge — thin gold/silver accent line */}
+            <div style={{
+              padding: 1,
+              background: frameStyle.innerEdge,
+              borderRadius: Math.max(0, (cs.borderRadius || 16) - 2),
+            }}>
+              {/* Image container */}
               <div
                 style={{
-                  position: "absolute",
-                  bottom: 0,
-                  left: 0,
-                  right: 0,
-                  padding: isMobile ? "20px 8px 8px" : "40px 12px 12px",
-                  background: "linear-gradient(transparent, rgba(0,0,0,0.8))",
-                  opacity: isMobile ? 0.7 : (hovered ? 1 : 0),
-                  transition: "opacity 0.3s ease",
+                  borderRadius: Math.max(0, (cs.borderRadius || 16) - 3),
+                  overflow: "hidden",
+                  position: "relative",
                 }}
               >
-                <p
+                <img
+                  src={image.url}
+                  alt={image.title}
+                  onLoad={() => setLoaded(true)}
+                  onError={() => setError(true)}
                   style={{
-                    fontSize: isMobile ? 10 : 13,
-                    fontWeight: 600,
-                    fontFamily: theme.bodyFont,
-                    color: "#fff",
-                    marginBottom: 2,
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
+                    width: "100%",
+                    display: "block",
+                    maxHeight: isMobile ? 180 : 320,
+                    objectFit: "cover",
+                    filter: hovered ? "brightness(1.1)" : "brightness(1)",
+                    transition: "filter 0.4s ease",
+                  }}
+                />
+
+                {/* Hover overlay (title, source) — always visible on mobile */}
+                <div
+                  style={{
+                    position: "absolute",
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    padding: isMobile ? "20px 8px 8px" : "40px 12px 12px",
+                    background: "linear-gradient(transparent, rgba(0,0,0,0.8))",
+                    opacity: isMobile ? 0.7 : (hovered ? 1 : 0),
+                    transition: "opacity 0.3s ease",
                   }}
                 >
-                  {image.title}
-                </p>
-                <p style={{ fontSize: isMobile ? 9 : 11, color: "rgba(255,255,255,0.7)", fontFamily: theme.bodyFont }}>
-                  {image.source}
-                </p>
-              </div>
+                  <p
+                    style={{
+                      fontSize: isMobile ? 10 : 13,
+                      fontWeight: 600,
+                      fontFamily: theme.bodyFont,
+                      color: "#fff",
+                      marginBottom: 2,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {image.title}
+                  </p>
+                  <p style={{ fontSize: isMobile ? 9 : 11, color: "rgba(255,255,255,0.7)", fontFamily: theme.bodyFont }}>
+                    {image.source}
+                  </p>
+                </div>
 
-              {/* Save button — always visible on mobile */}
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setSaved(!saved);
-                }}
-                style={{
-                  position: "absolute",
-                  top: 8,
-                  right: 8,
-                  padding: isMobile ? "3px 7px" : "4px 10px",
-                  borderRadius: 8,
-                  border: "none",
-                  background: saved ? theme.primary : "rgba(0,0,0,0.5)",
-                  color: "#fff",
-                  fontSize: isMobile ? 9 : 11,
-                  fontFamily: theme.bodyFont,
-                  fontWeight: 600,
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 4,
-                  opacity: isMobile ? 0.8 : (hovered ? 1 : 0),
-                  transition: "all 0.3s cubic-bezier(0.23, 1, 0.32, 1)",
-                  backdropFilter: "blur(10px)",
-                  letterSpacing: 0.3,
-                }}
-              >
-                <svg
-                  width="12"
-                  height="12"
-                  viewBox="0 0 24 24"
-                  fill={saved ? "currentColor" : "none"}
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
+                {/* Save button — always visible on mobile */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSaved(!saved);
+                  }}
+                  style={{
+                    position: "absolute",
+                    top: 8,
+                    right: 8,
+                    padding: isMobile ? "3px 7px" : "4px 10px",
+                    borderRadius: 8,
+                    border: "none",
+                    background: saved ? theme.primary : "rgba(0,0,0,0.5)",
+                    color: "#fff",
+                    fontSize: isMobile ? 9 : 11,
+                    fontFamily: theme.bodyFont,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 4,
+                    opacity: isMobile ? 0.8 : (hovered ? 1 : 0),
+                    transition: "all 0.3s cubic-bezier(0.23, 1, 0.32, 1)",
+                    backdropFilter: "blur(10px)",
+                    letterSpacing: 0.3,
+                  }}
                 >
-                  <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
-                </svg>
-                {saved ? t.saved : t.save}
-              </button>
+                  <svg
+                    width="12"
+                    height="12"
+                    viewBox="0 0 24 24"
+                    fill={saved ? "currentColor" : "none"}
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+                  </svg>
+                  {saved ? t.saved : t.save}
+                </button>
+              </div>
             </div>
           </div>
         </div>
       </div>
+
+      {/* Caption — museum-style label below the frame */}
+      {displayTitle && (
+        <div
+          style={{
+            marginTop: isMobile ? 4 : 6,
+            maxWidth: "100%",
+            textAlign: "center",
+            padding: "2px 8px",
+          }}
+        >
+          <p
+            style={{
+              fontFamily: theme.bodyFont,
+              fontSize: isMobile ? 9 : 12,
+              color: theme.subtext,
+              opacity: 0.75,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+              lineHeight: 1.3,
+              letterSpacing: 0.3,
+              transition: "color 0.5s ease",
+            }}
+          >
+            {displayTitle}
+          </p>
+        </div>
+      )}
     </div>
   );
 }
@@ -1741,7 +1826,7 @@ function SearchResultsHeader({ query, count, theme, t }) {
 }
 
 // --- Scatter layout: cards positioned freely like photos on a gallery wall ---
-function ScatterLayout({ images, theme, onImageClick, t, cardStyles, cardColorAnalysis }) {
+function ScatterLayout({ images, theme, onImageClick, t, cardStyles, cardColorAnalysis, translatedTitles, lang }) {
   const containerRef = useRef(null);
   const [positions, setPositions] = useState([]);
   const isMobile = typeof window !== "undefined" && window.innerWidth < 480;
@@ -1803,7 +1888,7 @@ function ScatterLayout({ images, theme, onImageClick, t, cardStyles, cardColorAn
 
   // Calculate container height from card positions
   const containerHeight = positions.length > 0
-    ? Math.max(...positions.map(p => p.y)) + (isMobile ? 280 : 450)
+    ? Math.max(...positions.map(p => p.y)) + (isMobile ? 300 : 470)
     : 800;
 
   return (
@@ -1839,6 +1924,12 @@ function ScatterLayout({ images, theme, onImageClick, t, cardStyles, cardColorAn
               t={t}
               cardStyle={cardStyles[i] || null}
               colorAnalysis={cardColorAnalysis ? cardColorAnalysis[i] : null}
+              displayTitle={
+                lang === "ja" && translatedTitles && translatedTitles[img.id]
+                  ? translatedTitles[img.id]
+                  : img.title || ""
+              }
+              lang={lang}
             />
           </div>
         );
@@ -1980,6 +2071,7 @@ export default function Visushift() {
   const [cardStyles, setCardStyles] = useState([]);
   const [layoutMode, setLayoutMode] = useState(LAYOUT_MODES[0]);
   const [cardColorAnalysis, setCardColorAnalysis] = useState([]);
+  const [translatedTitles, setTranslatedTitles] = useState({});
   const [imageSource, setImageSource] = useState(() => {
     if (PIXABAY_API_KEY) return "pixabay";
     if (UNSPLASH_ACCESS_KEY) return "unsplash";
@@ -2108,6 +2200,7 @@ export default function Visushift() {
     setTheme(makeDefaultTheme());
     setCardStyles([]);
     setCardColorAnalysis([]);
+    setTranslatedTitles({});
     setLayoutMode(LAYOUT_MODES[0]);
 
     if (!skipPushState) {
@@ -2155,6 +2248,42 @@ export default function Visushift() {
     };
   }, [lightboxImage]);
 
+  // Translate image titles to Japanese when in ja mode
+  useEffect(() => {
+    if (lang !== "ja" || images.length === 0) {
+      setTranslatedTitles({});
+      return;
+    }
+
+    let cancelled = false;
+    const translateAll = async () => {
+      const displayCount = window.innerWidth < 480 ? 8 : window.innerWidth < 768 ? 12 : 16;
+      const targets = images.slice(0, displayCount);
+      const results = {};
+
+      await Promise.allSettled(
+        targets.map(async (img) => {
+          const title = img.title || "";
+          if (!title || containsJapanese(title)) {
+            results[img.id] = title;
+            return;
+          }
+          const translated = await translateToJapanese(title);
+          if (!cancelled) {
+            results[img.id] = translated;
+          }
+        })
+      );
+
+      if (!cancelled) {
+        setTranslatedTitles(results);
+      }
+    };
+
+    translateAll();
+    return () => { cancelled = true; };
+  }, [images, lang]);
+
   return (
     <>
       <GlobalStyles theme={theme} />
@@ -2168,7 +2297,7 @@ export default function Visushift() {
       ) : (
         <>
           <SearchResultsHeader query={query} count={images.length} theme={theme} t={t} />
-          <ScatterLayout images={images} theme={theme} onImageClick={setLightboxImage} t={t} cardStyles={cardStyles} cardColorAnalysis={cardColorAnalysis} />
+          <ScatterLayout images={images} theme={theme} onImageClick={setLightboxImage} t={t} cardStyles={cardStyles} cardColorAnalysis={cardColorAnalysis} translatedTitles={translatedTitles} lang={lang} />
         </>
       )}
 
