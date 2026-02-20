@@ -83,6 +83,13 @@ async function translateToEnglish(jaText) {
     }
   }
 
+  // 2.5. EN_JA_TITLE_DICT reverse lookup (partial match)
+  for (const [en, ja] of Object.entries(EN_JA_TITLE_DICT)) {
+    if (jaText.includes(ja) && ja.length > 1) {
+      return en;
+    }
+  }
+
   // 3. MyMemory Translation API (free, no API key required)
   try {
     const res = await fetch(
@@ -108,35 +115,220 @@ for (const [ja, en] of Object.entries(JA_EN_DICT)) {
   EN_JA_DICT[en.toLowerCase()] = ja;
 }
 
-// --- Translate English to Japanese (dict → partial match → MyMemory API → fallback) ---
-async function translateToJapanese(enText) {
-  if (!enText || containsJapanese(enText)) return enText;
+// --- Large EN→JA dictionary for photo title translation (300+ words) ---
+const EN_JA_TITLE_DICT = {
+  // --- 自然・風景 ---
+  "sunset": "夕日", "sunrise": "朝日", "dawn": "夜明け", "dusk": "黄昏",
+  "twilight": "薄明", "golden hour": "ゴールデンアワー",
+  "landscape": "風景", "scenery": "景色", "horizon": "地平線",
+  "mountain": "山", "mountains": "山々", "hill": "丘", "hills": "丘陵",
+  "valley": "谷", "canyon": "峡谷", "cliff": "崖", "peak": "山頂",
+  "volcano": "火山", "ridge": "尾根",
+  "forest": "森", "woods": "森林", "jungle": "ジャングル", "grove": "木立",
+  "tree": "木", "trees": "木々", "branch": "枝", "leaf": "葉",
+  "leaves": "葉", "autumn leaves": "紅葉", "foliage": "紅葉",
+  "meadow": "草原", "field": "野原", "prairie": "草原", "grassland": "草地",
+  "desert": "砂漠", "dune": "砂丘", "oasis": "オアシス",
+  "ocean": "海", "sea": "海", "wave": "波", "waves": "波",
+  "beach": "ビーチ", "shore": "海岸", "coast": "海岸", "coastal": "沿岸の",
+  "island": "島", "bay": "湾", "lagoon": "ラグーン", "reef": "礁",
+  "coral": "珊瑚", "tide": "潮", "surf": "波乗り",
+  "river": "川", "stream": "小川", "creek": "小川", "waterfall": "滝",
+  "lake": "湖", "pond": "池", "marsh": "湿地", "swamp": "沼",
+  "rain": "雨", "rainbow": "虹", "storm": "嵐", "thunder": "雷",
+  "lightning": "稲妻", "fog": "霧", "mist": "霧", "haze": "霞",
+  "cloud": "雲", "clouds": "雲", "sky": "空", "blue sky": "青空",
+  "snow": "雪", "ice": "氷", "frost": "霜", "glacier": "氷河",
+  "winter": "冬", "spring": "春", "summer": "夏", "autumn": "秋", "fall": "秋",
 
-  const lower = enText.toLowerCase().trim();
-  if (EN_JA_DICT[lower]) return EN_JA_DICT[lower];
+  // --- 花・植物 ---
+  "flower": "花", "flowers": "花々", "bloom": "花", "blossom": "花",
+  "cherry blossom": "桜", "sakura": "桜", "rose": "薔薇", "roses": "薔薇",
+  "tulip": "チューリップ", "sunflower": "ひまわり", "lavender": "ラベンダー",
+  "daisy": "デイジー", "lily": "百合", "lotus": "蓮", "orchid": "蘭",
+  "garden": "庭園", "botanical": "植物園の", "petal": "花びら",
+  "bouquet": "花束", "wildflower": "野花", "vine": "蔦",
+  "plant": "植物", "plants": "植物", "green": "緑", "moss": "苔",
 
-  for (const [en, ja] of Object.entries(EN_JA_DICT)) {
-    if (lower.includes(en)) {
-      return enText.replace(new RegExp(en, "i"), ja);
+  // --- 動物 ---
+  "animal": "動物", "animals": "動物たち", "wildlife": "野生動物",
+  "cat": "猫", "kitten": "子猫", "dog": "犬", "puppy": "子犬",
+  "bird": "鳥", "birds": "鳥たち", "eagle": "鷲", "owl": "フクロウ",
+  "swan": "白鳥", "heron": "鷺", "flamingo": "フラミンゴ",
+  "fish": "魚", "dolphin": "イルカ", "whale": "クジラ", "shark": "鮫",
+  "horse": "馬", "deer": "鹿", "fox": "狐", "wolf": "狼",
+  "bear": "熊", "rabbit": "兎", "squirrel": "リス",
+  "butterfly": "蝶", "dragonfly": "トンボ", "bee": "蜂",
+  "lion": "ライオン", "tiger": "虎", "elephant": "象",
+  "panda": "パンダ", "monkey": "猿", "penguin": "ペンギン",
+
+  // --- 建築・都市 ---
+  "building": "建物", "architecture": "建築", "structure": "構造物",
+  "tower": "塔", "bridge": "橋", "castle": "城", "palace": "宮殿",
+  "church": "教会", "cathedral": "大聖堂", "mosque": "モスク",
+  "temple": "寺院", "shrine": "神社", "pagoda": "塔",
+  "house": "家", "home": "家", "cottage": "コテージ", "cabin": "小屋",
+  "city": "都市", "town": "町", "village": "村", "urban": "都会の",
+  "street": "通り", "road": "道", "path": "小道", "alley": "路地",
+  "skyscraper": "高層ビル", "skyline": "スカイライン",
+  "window": "窓", "door": "扉", "gate": "門", "stairs": "階段",
+  "roof": "屋根", "wall": "壁", "fence": "柵",
+  "ruin": "廃墟", "ruins": "遺跡", "ancient": "古代の", "historic": "歴史的な",
+  "modern": "モダンな", "traditional": "伝統的な",
+
+  // --- 食べ物・飲み物 ---
+  "food": "料理", "meal": "食事", "dish": "料理", "cuisine": "料理",
+  "breakfast": "朝食", "lunch": "昼食", "dinner": "夕食",
+  "fruit": "果物", "apple": "りんご", "orange": "オレンジ", "berry": "ベリー",
+  "vegetable": "野菜", "salad": "サラダ", "soup": "スープ",
+  "bread": "パン", "cake": "ケーキ", "pastry": "ペストリー",
+  "chocolate": "チョコレート", "dessert": "デザート", "sweet": "甘い",
+  "coffee": "コーヒー", "tea": "お茶", "wine": "ワイン", "beer": "ビール",
+  "sushi": "寿司", "ramen": "ラーメン", "rice": "米",
+  "cheese": "チーズ", "pizza": "ピザ", "pasta": "パスタ",
+  "fresh": "新鮮な", "organic": "オーガニック", "delicious": "美味しい",
+  "restaurant": "レストラン", "cafe": "カフェ", "kitchen": "キッチン",
+  "cooking": "料理", "baking": "焼き菓子",
+
+  // --- 人・生活 ---
+  "people": "人々", "person": "人", "woman": "女性", "man": "男性",
+  "child": "子供", "children": "子供たち", "baby": "赤ちゃん",
+  "family": "家族", "couple": "カップル", "friend": "友人",
+  "portrait": "肖像", "face": "顔", "smile": "笑顔", "eyes": "瞳",
+  "hand": "手", "hands": "手",
+  "wedding": "結婚式", "celebration": "祝祭", "party": "パーティー",
+  "dance": "ダンス", "dancing": "踊り", "music": "音楽",
+
+  // --- 色・質感 ---
+  "red": "赤", "blue": "青", "green": "緑", "yellow": "黄色",
+  "purple": "紫", "pink": "ピンク", "white": "白",
+  "black": "黒", "golden": "金色の", "silver": "銀色の",
+  "colorful": "色とりどりの", "pastel": "パステル",
+  "bright": "明るい", "dark": "暗い", "light": "光",
+  "shadow": "影", "shadows": "影",
+  "texture": "質感", "pattern": "模様", "abstract": "抽象",
+  "reflection": "反射", "mirror": "鏡", "glass": "ガラス",
+  "bokeh": "ぼけ", "blur": "ぼかし", "silhouette": "シルエット",
+
+  // --- 時間・雰囲気 ---
+  "morning": "朝", "afternoon": "午後", "evening": "夕方", "night": "夜",
+  "midnight": "真夜中", "daylight": "日光",
+  "peaceful": "穏やかな", "calm": "静かな", "serene": "静穏な",
+  "dramatic": "劇的な", "moody": "ムーディーな", "dreamy": "夢のような",
+  "romantic": "ロマンチックな", "mysterious": "神秘的な",
+  "beautiful": "美しい", "stunning": "見事な", "gorgeous": "華麗な",
+  "elegant": "優雅な", "majestic": "壮大な", "magnificent": "壮麗な",
+  "lonely": "孤独な", "solitary": "一人の", "quiet": "静かな",
+  "wild": "野性の", "free": "自由な", "adventure": "冒険",
+  "journey": "旅路", "travel": "旅", "explore": "探検",
+  "vintage": "ヴィンテージ", "retro": "レトロ", "rustic": "素朴な",
+  "minimal": "ミニマル", "simple": "シンプルな",
+  "luxury": "贅沢な", "classic": "クラシック",
+
+  // --- その他 ---
+  "art": "アート", "painting": "絵画", "photo": "写真",
+  "photography": "写真", "camera": "カメラ", "lens": "レンズ",
+  "long exposure": "長時間露光", "aerial": "空撮", "drone": "ドローン",
+  "macro": "マクロ", "close up": "クローズアップ",
+  "panorama": "パノラマ", "wide angle": "広角",
+  "boat": "船", "ship": "船", "sailboat": "帆船",
+  "car": "車", "train": "電車", "bicycle": "自転車",
+  "airplane": "飛行機", "airport": "空港",
+  "fireworks": "花火", "lantern": "灯篭", "candle": "蝋燭",
+  "lamp": "灯り", "neon": "ネオン",
+  "book": "本", "library": "図書館",
+  "sport": "スポーツ", "yoga": "ヨガ", "fitness": "フィットネス",
+  "christmas": "クリスマス", "halloween": "ハロウィン", "festival": "祭り",
+  "market": "市場", "shop": "店",
+  "workspace": "ワークスペース", "office": "オフィス", "desk": "机",
+  "technology": "テクノロジー", "computer": "コンピュータ",
+  "space": "宇宙", "galaxy": "銀河", "star": "星", "stars": "星々",
+  "moon": "月", "planet": "惑星", "cosmos": "宇宙", "nebula": "星雲",
+  "underwater": "水中", "diving": "ダイビング",
+};
+
+// --- Translate a single English phrase to Japanese ---
+async function translateSinglePhrase(phrase) {
+  if (!phrase) return "";
+  if (containsJapanese(phrase)) return phrase;
+
+  const lower = phrase.toLowerCase().trim();
+
+  // 1. Large dictionary exact match
+  if (EN_JA_TITLE_DICT[lower]) return EN_JA_TITLE_DICT[lower];
+
+  // 2. Large dictionary partial match (longest key first)
+  //    e.g. "cherry blossom" in "beautiful cherry blossom" → "美しい桜"
+  const sortedKeys = Object.keys(EN_JA_TITLE_DICT).sort((a, b) => b.length - a.length);
+  let translated = lower;
+  let matched = false;
+  for (const en of sortedKeys) {
+    if (translated.includes(en)) {
+      translated = translated.replace(en, EN_JA_TITLE_DICT[en]);
+      matched = true;
     }
   }
+  // If fully translated (no remaining English words of 2+ chars)
+  if (matched && !/[a-zA-Z]{2,}/.test(translated)) {
+    return translated.trim().replace(/\s+/g, "");
+  }
 
+  // 3. EN_JA_DICT reverse lookup (from JA_EN_DICT)
+  if (EN_JA_DICT[lower]) {
+    return EN_JA_DICT[lower];
+  }
+
+  // 4. MyMemory API with context for better accuracy
+  //    Send "a photo of [phrase]" and strip the prefix from result
   try {
+    const contextual = `a photo of ${phrase}`;
     const res = await fetch(
-      `https://api.mymemory.translated.net/get?q=${encodeURIComponent(enText)}&langpair=en|ja`
+      `https://api.mymemory.translated.net/get?q=${encodeURIComponent(contextual)}&langpair=en|ja`
     );
     if (res.ok) {
       const data = await res.json();
       if (data.responseData && data.responseData.translatedText) {
-        const translated = data.responseData.translatedText;
-        if (translated && translated !== enText) return translated;
+        let result = data.responseData.translatedText;
+        // Strip context prefix patterns
+        result = result
+          .replace(/^の写真\s*/i, "")
+          .replace(/^写真の?\s*/i, "")
+          .replace(/^.*の写真[:：]?\s*/i, "")
+          .replace(/^a photo of\s*/i, "")
+          .trim();
+        if (result && result !== phrase && result !== contextual) {
+          return result;
+        }
       }
     }
   } catch {
     // API failure
   }
 
-  return enText;
+  // 5. Return partial dictionary match if any (even with mixed English)
+  if (matched) {
+    return translated.trim();
+  }
+
+  // 6. Fallback: return capitalized English
+  return phrase.charAt(0).toUpperCase() + phrase.slice(1);
+}
+
+// --- Translate English to Japanese (handles "·" separated titles) ---
+async function translateToJapanese(enText) {
+  if (!enText || containsJapanese(enText)) return enText;
+
+  // Split "·" separated formatted titles and translate each part
+  if (enText.includes("·")) {
+    const parts = enText.split("·").map((p) => p.trim()).filter(Boolean);
+    const translatedParts = await Promise.all(
+      parts.map((part) => translateSinglePhrase(part))
+    );
+    return translatedParts.join(" · ");
+  }
+
+  // Single phrase
+  return translateSinglePhrase(enText);
 }
 
 // --- Capitalize first letter ---
