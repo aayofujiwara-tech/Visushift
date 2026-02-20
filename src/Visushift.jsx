@@ -2384,22 +2384,24 @@ export default function Visushift() {
       window.history.pushState({ query: searchQuery }, "", `?q=${encodeURIComponent(searchQuery)}`);
     }
 
-    // Deterministic seed from query (same query → same results)
-    const seed = queryHash(searchQuery);
-
-    // Reset random seed for card styling
+    // Reset random seed for this search (time-based)
     resetRandomSeed();
+
+    // Seed combines query hash + time-based seed for variety per search
+    // Same search within one session gets different results each time,
+    // but everything within a single search is internally consistent
+    const seed = queryHash(searchQuery) + _globalSeed;
 
     // Detect fonts immediately from query
     const fonts = detectFonts(searchQuery);
     // Apply fonts to current (default) theme immediately
     setTheme((prev) => ({ ...prev, font: fonts.font, bodyFont: fonts.bodyFont }));
 
-    // Select layout mode using seeded random (deterministic per query)
-    const layoutIndex = seed % LAYOUT_MODES.length;
+    // Select layout mode (seeded per search for variety, but stable within one search)
+    const layoutIndex = Math.floor(seededRandom(seed) * LAYOUT_MODES.length);
     const selectedLayout = { ...LAYOUT_MODES[layoutIndex] };
     if (selectedLayout.name === "asymmetric") {
-      selectedLayout.flexPatternIndex = (seed >> 2) % 3;
+      selectedLayout.flexPatternIndex = Math.floor(seededRandom(seed + 77) * 3);
     }
     setLayoutMode(selectedLayout);
 
@@ -2480,7 +2482,7 @@ export default function Visushift() {
       const temp = getColorTemperature(palette);
       const tempFontOptions = TEMPERATURE_FONTS[temp];
       if (fonts === DEFAULT_FONTS || seededRandom(seed + 999) < 0.3) {
-        finalFonts = tempFontOptions[seed % tempFontOptions.length];
+        finalFonts = tempFontOptions[Math.floor(seededRandom(seed + 888) * tempFontOptions.length)];
       }
 
       const dynamicTheme = createDynamicTheme(palette, finalFonts);
