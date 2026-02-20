@@ -451,6 +451,111 @@ async function extractColorsFromImages(images, count, query) {
   return Promise.all(colorPromises);
 }
 
+// --- Advanced per-card color analysis via Canvas ---
+function analyzeImageColors(imageUrl) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      try {
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+        const size = 64;
+        canvas.width = size;
+        canvas.height = size;
+        ctx.drawImage(img, 0, 0, size, size);
+        const data = ctx.getImageData(0, 0, size, size).data;
+
+        // Color quantization: 4x4x4 = 64 buckets
+        const buckets = {};
+        let totalPixels = 0;
+        let brightnessSum = 0;
+        let brightPixels = 0;
+        let darkPixels = 0;
+
+        for (let i = 0; i < data.length; i += 4) {
+          const r = data[i], g = data[i + 1], b = data[i + 2], a = data[i + 3];
+          if (a < 128) continue;
+
+          const lum = (r * 0.299 + g * 0.587 + b * 0.114) / 255;
+          brightnessSum += lum;
+          totalPixels++;
+
+          if (lum > 0.65) brightPixels++;
+          else if (lum < 0.25) darkPixels++;
+
+          const br = Math.floor(r / 64);
+          const bg = Math.floor(g / 64);
+          const bb = Math.floor(b / 64);
+          const key = `${br}-${bg}-${bb}`;
+
+          if (!buckets[key]) {
+            buckets[key] = { r: 0, g: 0, b: 0, count: 0 };
+          }
+          buckets[key].r += r;
+          buckets[key].g += g;
+          buckets[key].b += b;
+          buckets[key].count++;
+        }
+
+        if (totalPixels === 0) {
+          resolve(null);
+          return;
+        }
+
+        const sorted = Object.values(buckets)
+          .map((bk) => ({
+            r: Math.round(bk.r / bk.count),
+            g: Math.round(bk.g / bk.count),
+            b: Math.round(bk.b / bk.count),
+            count: bk.count,
+          }))
+          .sort((a, b) => b.count - a.count);
+
+        const dominant = sorted[0] || { r: 128, g: 128, b: 128 };
+
+        // Accent: pick bucket with largest color distance from dominant
+        let accent = sorted[1] || dominant;
+        for (let i = 1; i < sorted.length && i < 10; i++) {
+          const d = Math.sqrt(
+            Math.pow(sorted[i].r - dominant.r, 2) +
+            Math.pow(sorted[i].g - dominant.g, 2) +
+            Math.pow(sorted[i].b - dominant.b, 2)
+          );
+          if (d > 60) {
+            accent = sorted[i];
+            break;
+          }
+        }
+
+        const avgBrightness = brightnessSum / totalPixels;
+        const brightRatio = brightPixels / totalPixels;
+        const darkRatio = darkPixels / totalPixels;
+
+        const contrast = brightRatio + darkRatio > 0.6 ? "high" :
+                         brightRatio + darkRatio < 0.3 ? "low" : "medium";
+
+        const mood = avgBrightness > 0.6 ? "bright" :
+                     avgBrightness < 0.35 ? "dark" : "balanced";
+
+        resolve({
+          dominant: { r: dominant.r, g: dominant.g, b: dominant.b },
+          accent: { r: accent.r, g: accent.g, b: accent.b },
+          avgBrightness,
+          brightRatio,
+          darkRatio,
+          contrast,
+          mood,
+        });
+      } catch {
+        resolve(null);
+      }
+    };
+    img.onerror = () => resolve(null);
+    img.src = imageUrl;
+  });
+}
+
 // --- GlobalStyles ---
 function GlobalStyles({ theme }) {
   return (
@@ -1059,19 +1164,31 @@ function Landing({ theme, onSearch, history, lang, t }) {
 }
 
 // --- Generate realistic frame style from image color ---
-function generateFrameStyle(imageColor, theme, index) {
-  let baseColor = { r: 80, g: 60, b: 40 }; // Default: dark wood
+function generateFrameStyle(imageColor, theme, index, colorAnalysis) {
+  const clamp = (v) => Math.min(255, Math.max(0, Math.round(v)));
 
-  if (imageColor) {
+  // --- Base color determination ---
+  let baseColor = { r: 80, g: 60, b: 40 };
+  let dominantColor = null;
+  let accentColor = null;
+  let imgContrast = "medium";
+  let imgMood = "balanced";
+
+  if (colorAnalysis) {
+    baseColor = colorAnalysis.dominant;
+    dominantColor = colorAnalysis.dominant;
+    accentColor = colorAnalysis.accent;
+    imgContrast = colorAnalysis.contrast;
+    imgMood = colorAnalysis.mood;
+  } else if (imageColor) {
     const c = hexToRgb(imageColor);
     if (c) baseColor = c;
   }
 
-  const clamp = (v) => Math.min(255, Math.max(0, Math.round(v)));
   const bc = baseColor;
-
-  // Calculate luminance and saturation from image color
-  const luminance = (bc.r * 0.299 + bc.g * 0.587 + bc.b * 0.114) / 255;
+  const luminance = colorAnalysis
+    ? colorAnalysis.avgBrightness
+    : (bc.r * 0.299 + bc.g * 0.587 + bc.b * 0.114) / 255;
   const sat = saturation(bc);
   const warmth = bc.r - bc.b;
 
@@ -1094,7 +1211,7 @@ function generateFrameStyle(imageColor, theme, index) {
   const frameType = determineFrameType(bc, luminance, sat, warmth, index);
 
   // Dynamic mat color based on image color characteristics
-  function calculateMatColor(baseCol, lum, w, fType) {
+  function calculateMatColor(baseCol, w, fType) {
     if (fType === "ebony") {
       return `rgb(${clamp(240 + baseCol.r * 0.03)}, ${clamp(238 + baseCol.g * 0.03)}, ${clamp(235 + baseCol.b * 0.03)})`;
     }
@@ -1212,30 +1329,85 @@ function generateFrameStyle(imageColor, theme, index) {
 
   const style = { ...FRAME_STYLES[frameType], frameType };
 
-  // Dynamic mat color from image accent (overwrite for non-white types)
-  if (frameType !== "white") {
-    style.matColor = calculateMatColor(bc, luminance, warmth, frameType);
+  // --- Blend dominant color into wood frame colors ---
+  if (style.hasWoodGrain && dominantColor) {
+    const blendRatio = 0.15;
+    const blendColor = (frameRgbStr, dc) => {
+      const match = frameRgbStr.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+      if (!match) return frameRgbStr;
+      const fr = parseInt(match[1]);
+      const fg = parseInt(match[2]);
+      const fb = parseInt(match[3]);
+      const nr = clamp(fr * (1 - blendRatio) + dc.r * blendRatio);
+      const ng = clamp(fg * (1 - blendRatio) + dc.g * blendRatio);
+      const nb = clamp(fb * (1 - blendRatio) + dc.b * blendRatio);
+      return `rgb(${nr}, ${ng}, ${nb})`;
+    };
+    style.outerLight = blendColor(style.outerLight, dominantColor);
+    style.outerDark = blendColor(style.outerDark, dominantColor);
+    style.outerMid = blendColor(style.outerMid, dominantColor);
   }
 
-  // Grain angle: warm → diagonal (80-88°), cool → near-vertical (88-96°)
+  // --- Contrast/mood → shadow & groove adjustments ---
+  if (imgContrast === "high") {
+    style.shadowColor = style.shadowColor.replace(/[\d.]+\)$/, (m) => {
+      const opacity = parseFloat(m);
+      return `${Math.min(0.85, opacity + 0.2)})`;
+    });
+  } else if (imgContrast === "low") {
+    style.shadowColor = style.shadowColor.replace(/[\d.]+\)$/, (m) => {
+      const opacity = parseFloat(m);
+      return `${Math.max(0.2, opacity - 0.15)})`;
+    });
+  }
+
+  if (imgMood === "dark") {
+    style.grooveColor = style.grooveColor.replace(/[\d.]+\)$/, (m) => {
+      const opacity = parseFloat(m);
+      return `${Math.min(0.8, opacity + 0.15)})`;
+    });
+  }
+
+  // --- Dynamic mat color from image accent ---
+  if (frameType !== "white") {
+    style.matColor = calculateMatColor(bc, warmth, frameType);
+  }
+
+  // --- Accent color → inner edge adjustment ---
+  if (accentColor && style.hasWoodGrain) {
+    const ar = accentColor.r, ag = accentColor.g, ab = accentColor.b;
+    style.innerEdge = `rgba(${clamp(ar * 0.3 + 140)}, ${clamp(ag * 0.3 + 130)}, ${clamp(ab * 0.3 + 110)}, 0.5)`;
+  }
+
+  // --- Frame/mat width multipliers ---
+  let frameWidthMultiplier = 1.3 - luminance * 0.6;
+  const matWidthMultiplier = 1.4 - luminance * 0.8;
+  if (imgContrast === "high") {
+    frameWidthMultiplier *= 1.1;
+  } else if (imgContrast === "low") {
+    frameWidthMultiplier *= 0.9;
+  }
+  style.frameWidthMultiplier = frameWidthMultiplier;
+  style.matWidthMultiplier = matWidthMultiplier;
+
+  // --- Grain angle & density ---
   if (style.hasWoodGrain) {
     style.grainAngle = warmth > 0
       ? 80 + (index % 9)
       : 88 + (index % 9);
-  }
 
-  // Grain density: warm→coarse, cool→fine, neutral→medium
-  if (style.hasWoodGrain) {
     style.grainDensity = warmth > 30 ? "coarse" : warmth < -10 ? "fine" : "medium";
+
+    // Mood-based density refinement
+    if (imgMood === "dark" && style.grainDensity === "medium") {
+      style.grainDensity = "coarse";
+    }
+    if (imgMood === "bright" && style.grainDensity === "medium") {
+      style.grainDensity = "fine";
+    }
   }
 
-  // Dynamic frame/mat width multipliers based on luminance
-  const frameWidthMultiplier = 1.3 - luminance * 0.6;
-  const matWidthMultiplier = 1.4 - luminance * 0.8;
-  style.frameWidthMultiplier = frameWidthMultiplier;
-  style.matWidthMultiplier = matWidthMultiplier;
-
-  // Generate outerGradient for all wood grain types (density-aware stop counts)
+  // --- outerGradient (density-aware) ---
   if (style.hasWoodGrain) {
     const { outerLight, outerDark, outerMid } = style;
     const angle = style.grainAngle + 90;
@@ -1253,7 +1425,7 @@ function generateFrameStyle(imageColor, theme, index) {
 }
 
 // --- ImageCard with per-card color glow and realistic multi-layer frame ---
-function ImageCard({ image, index, theme, onClick, t, cardStyle }) {
+function ImageCard({ image, index, theme, onClick, t, cardStyle, colorAnalysis }) {
   const [loaded, setLoaded] = useState(false);
   const [hovered, setHovered] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -1274,7 +1446,7 @@ function ImageCard({ image, index, theme, onClick, t, cardStyle }) {
   })();
 
   // Frame parameters (mobile: slimmer frames for compact 2-col layout)
-  const frameStyle = generateFrameStyle(image.color, theme, index);
+  const frameStyle = generateFrameStyle(image.color, theme, index, colorAnalysis);
   const fwMultiplier = frameStyle.frameWidthMultiplier || 1;
   const fiwMultiplier = frameStyle.matWidthMultiplier || 1;
   const fw = isMobile
@@ -1569,7 +1741,7 @@ function SearchResultsHeader({ query, count, theme, t }) {
 }
 
 // --- Scatter layout: cards positioned freely like photos on a gallery wall ---
-function ScatterLayout({ images, theme, onImageClick, t, cardStyles }) {
+function ScatterLayout({ images, theme, onImageClick, t, cardStyles, cardColorAnalysis }) {
   const containerRef = useRef(null);
   const [positions, setPositions] = useState([]);
   const isMobile = typeof window !== "undefined" && window.innerWidth < 480;
@@ -1666,6 +1838,7 @@ function ScatterLayout({ images, theme, onImageClick, t, cardStyles }) {
               onClick={onImageClick}
               t={t}
               cardStyle={cardStyles[i] || null}
+              colorAnalysis={cardColorAnalysis ? cardColorAnalysis[i] : null}
             />
           </div>
         );
@@ -1806,6 +1979,7 @@ export default function Visushift() {
   const [lang, setLang] = useState("en");
   const [cardStyles, setCardStyles] = useState([]);
   const [layoutMode, setLayoutMode] = useState(LAYOUT_MODES[0]);
+  const [cardColorAnalysis, setCardColorAnalysis] = useState([]);
   const [imageSource, setImageSource] = useState(() => {
     if (PIXABAY_API_KEY) return "pixabay";
     if (UNSPLASH_ACCESS_KEY) return "unsplash";
@@ -1871,6 +2045,17 @@ export default function Visushift() {
 
     const results = await fetchImages(searchTerm, imageSource);
     setImages(results);
+    setCardColorAnalysis([]);
+
+    // Per-card color analysis (async, non-blocking)
+    const analysisDisplayCount = window.innerWidth < 480 ? 8 : window.innerWidth < 768 ? 12 : 16;
+    const analysisTargets = results.slice(0, analysisDisplayCount);
+    Promise.allSettled(
+      analysisTargets.map((img) => analyzeImageColors(img.url))
+    ).then((settled) => {
+      const analyses = settled.map((s) => s.status === "fulfilled" ? s.value : null);
+      setCardColorAnalysis(analyses);
+    });
 
     // Generate random card styles
     const styles = results.map((_, i) => ({
@@ -1922,6 +2107,7 @@ export default function Visushift() {
     setBgImages([]);
     setTheme(makeDefaultTheme());
     setCardStyles([]);
+    setCardColorAnalysis([]);
     setLayoutMode(LAYOUT_MODES[0]);
 
     if (!skipPushState) {
@@ -1982,7 +2168,7 @@ export default function Visushift() {
       ) : (
         <>
           <SearchResultsHeader query={query} count={images.length} theme={theme} t={t} />
-          <ScatterLayout images={images} theme={theme} onImageClick={setLightboxImage} t={t} cardStyles={cardStyles} />
+          <ScatterLayout images={images} theme={theme} onImageClick={setLightboxImage} t={t} cardStyles={cardStyles} cardColorAnalysis={cardColorAnalysis} />
         </>
       )}
 
