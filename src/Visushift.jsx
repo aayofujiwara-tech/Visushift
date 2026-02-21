@@ -2110,22 +2110,40 @@ function ScatterLayout({ images, theme, onImageClick, t, cardStyles, cardColorAn
       const mobile = containerWidth < 480;
       const tablet = containerWidth >= 480 && containerWidth < 768;
 
-      // Mobile: 2 columns (gallery wall feel)
-      const cols = mobile ? 2 : tablet ? 2 : 4;
+      // Mobile: single-column checkerboard (alternating left/right)
+      // Tablet/Desktop: multi-column scatter
+      const cols = mobile ? 1 : tablet ? 2 : 4;
 
-      // Card size: compact on mobile for 2-col scatter
-      const mobileCardWidth = Math.floor((containerWidth - 48) / 2);
-      const currentCardWidth = mobile ? Math.min(mobileCardWidth, 170) : tablet ? 260 : 300;
+      // Card size
+      const mobileCardWidth = Math.floor(containerWidth * 0.6);
+      const currentCardWidth = mobile ? Math.min(mobileCardWidth, 200) : tablet ? 260 : 300;
 
-      const minPadding = mobile ? 12 : 40;
+      const minPadding = mobile ? 8 : 40;
       const cellWidth = containerWidth / cols;
-      const cardHeight = mobile ? 200 : 340;
-      const cellHeight = cardHeight + minPadding + (mobile ? 30 : 60);
+      const cardHeight = mobile ? 220 : 340;
+      const cellHeight = cardHeight + minPadding + (mobile ? 20 : 60);
 
-      const maxOffsetX = Math.max(0, (cellWidth - currentCardWidth - minPadding) / 2);
-      const maxOffsetY = mobile ? 15 : 30;
+      const maxOffsetX = mobile ? 0 : Math.max(0, (cellWidth - currentCardWidth - minPadding) / 2);
+      const maxOffsetY = mobile ? 10 : 30;
 
       const newPositions = displayImages.map((_, i) => {
+        if (mobile) {
+          // Checkerboard: even rows left-aligned, odd rows right-aligned
+          const row = i;
+          const isLeft = row % 2 === 0;
+          const sideMargin = 12;
+          const x = isLeft ? sideMargin : containerWidth - currentCardWidth - sideMargin;
+          // Overlap rows slightly for a tighter staggered feel
+          const overlapRatio = 0.75;
+          const y = row * cellHeight * overlapRatio + minPadding / 2;
+          const offsetY = Math.cos((_globalSeed + i * 7919) * 0.0001) * maxOffsetY;
+          return {
+            x,
+            y: Math.max(0, y + offsetY),
+            width: currentCardWidth,
+          };
+        }
+
         const col = i % cols;
         const row = Math.floor(i / cols);
 
@@ -2135,7 +2153,7 @@ function ScatterLayout({ images, theme, onImageClick, t, cardStyles, cardColorAn
         const centerX = cellX + (cellWidth - currentCardWidth) / 2;
         const centerY = cellY + minPadding / 2;
 
-        // Random offset for scatter feel (even on mobile)
+        // Random offset for scatter feel
         const offsetX = Math.sin((_globalSeed + i * 3571) * 0.0001) * maxOffsetX;
         const offsetY = Math.cos((_globalSeed + i * 7919) * 0.0001) * maxOffsetY;
 
@@ -2156,7 +2174,7 @@ function ScatterLayout({ images, theme, onImageClick, t, cardStyles, cardColorAn
 
   // Calculate container height from card positions
   const containerHeight = positions.length > 0
-    ? Math.max(...positions.map(p => p.y)) + (isMobile ? 300 : 470)
+    ? Math.max(...positions.map(p => p.y)) + (isMobile ? 280 : 470)
     : 800;
 
   return (
