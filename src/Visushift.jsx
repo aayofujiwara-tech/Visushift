@@ -2337,7 +2337,10 @@ export default function Visushift() {
   const [history, setHistory] = useState([]);
   const [theme, setTheme] = useState(makeDefaultTheme);
   const [bgImages, setBgImages] = useState([]);
-  const [lang, setLang] = useState("ja");
+  const [lang, setLang] = useState(() => {
+    const browserLang = navigator.language || navigator.userLanguage || "";
+    return browserLang.startsWith("ja") ? "ja" : "en";
+  });
   const [cardStyles, setCardStyles] = useState([]);
   const [layoutMode, setLayoutMode] = useState(LAYOUT_MODES[0]);
   const [cardColorAnalysis, setCardColorAnalysis] = useState([]);
